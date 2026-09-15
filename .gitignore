@@ -1,0 +1,78 @@
+# ============================================================
+#  SlashGameProject — .gitignore
+#  只跟踪「项目自有内容」；引擎生成物与第三方素材库一律排除。
+# ============================================================
+
+# ---------- Unreal Engine 生成目录 ----------
+Binaries/
+Build/
+DerivedDataCache/
+Intermediate/
+Saved/
+.vs/
+.vscode/
+.idea/
+
+# ---------- Unreal 生成的工程/解决方案文件 ----------
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+*.xcodeproj
+*.xcworkspace
+*.code-workspace
+
+# ---------- 编译产物 ----------
+*.obj
+*.pdb
+*.dll
+*.lib
+*.exe
+*.o
+*.so
+*.dylib
+*.patch_0
+*.apk
+*.aab
+*.ipa
+
+# ---------- 第三方素材库（外部资源，不纳入版本管理）----------
+# 这些目录可从 Fab / Megascans / Mixamo 等渠道重新导入，
+# 完整清单与获取方式见 ASSETS_REQUIRED.md
+Content/AncientContent/
+Content/AncientTreasures/
+Content/AnimalVarietyPack/
+Content/AnimeCharacters/
+Content/ForestLandscape/
+Content/MedievalDungeon/
+Content/MedievalSword/
+Content/Mixamo/
+Content/Mobile_Trees/
+Content/OldWest/
+Content/PN_Pandanus/
+Content/PN_coniferBushes_I/
+Content/PN_interactiveSpruceForest/
+Content/PN_mediterraneanPlants_I/
+Content/ParagonMinions/
+Content/RockEnv_Pack/
+Content/StarterContent/
+Content/Stump_Scanned/
+Content/SwordTrailVFX/
+Content/Texture/
+Content/VaultCache/
+Content/Weapon_Pack/
+
+# ---------- 本地开发环境 / AI 工具 ----------
+# McpAutomationBridge 为本地自动化编辑工具插件（第三方，含独立 LICENSE），
+# 不属于游戏本体，不纳入仓库。详见 README「未包含的插件」。
+Plugins/McpAutomationBridge/
+.claude/
+.dsh-meow/
+.agent-teams/
+
+# ---------- 操作系统 ----------
+Thumbs.db
+Desktop.ini
+.DS_Store

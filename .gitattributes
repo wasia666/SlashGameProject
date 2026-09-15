@@ -1,0 +1,60 @@
+# ============================================================
+#  .gitattributes — SlashGameProject
+# ============================================================
+
+# 默认不做行尾转换：UE 工程内含大量二进制资源，统一关闭最安全
+* -text
+
+# ---------- 二进制资源 ----------
+*.uasset  binary
+*.umap    binary
+*.uexp    binary
+*.ubulk   binary
+*.upk     binary
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.tga     binary
+*.exr     binary
+*.wav     binary
+*.fbx     binary
+*.psd     binary
+*.zip     binary
+
+# ---------- 源码：GBK/CP936 → 仓库内以 UTF-8 存储 ----------
+# 说明：这些文件在本地仍保持原有的 GBK(CP936) 编码，Visual Studio / MSVC
+# 读写行为完全不变；git 在存入版本库时自动转换为 UTF-8，
+# 从而保证 GitHub 网页端与 UTF-8 环境下中文注释不会显示为乱码。
+Source/slash2/Private/Breakable/BreakableActor.cpp        text working-tree-encoding=GBK
+Source/slash2/Private/Characters/BaseCharacter.cpp        text working-tree-encoding=GBK
+Source/slash2/Private/Characters/SlashAnimInstance.cpp    text working-tree-encoding=GBK
+Source/slash2/Private/Characters/SlashCharacter.cpp       text working-tree-encoding=GBK
+Source/slash2/Private/Components/AttributeComponent.cpp   text working-tree-encoding=GBK
+Source/slash2/Private/Enemy/Enemy.cpp                     text working-tree-encoding=GBK
+Source/slash2/Private/HUD/HealthBarComponent.cpp          text working-tree-encoding=GBK
+Source/slash2/Private/HUD/SlashOverlay.cpp                text working-tree-encoding=GBK
+Source/slash2/Private/Items/Items.cpp                     text working-tree-encoding=GBK
+Source/slash2/Private/Items/Treasure.cpp                  text working-tree-encoding=GBK
+Source/slash2/Private/Items/Weapons/Weapon.cpp            text working-tree-encoding=GBK
+Source/slash2/Private/Pawns/Bird.cpp                      text working-tree-encoding=GBK
+Source/slash2/Public/Breakable/BreakableActor.h           text working-tree-encoding=GBK
+Source/slash2/Public/Characters/BaseCharacter.h           text working-tree-encoding=GBK
+Source/slash2/Public/Characters/CharacterTypes.h          text working-tree-encoding=GBK
+Source/slash2/Public/Characters/SlashAnimInstance.h       text working-tree-encoding=GBK
+Source/slash2/Public/Characters/SlashCharacter.h          text working-tree-encoding=GBK
+Source/slash2/Public/Components/AttributeComponent.h      text working-tree-encoding=GBK
+Source/slash2/Public/Enemy/Enemy.h                        text working-tree-encoding=GBK
+Source/slash2/Public/HUD/HealthBar.h                      text working-tree-encoding=GBK
+Source/slash2/Public/HUD/HealthBarComponent.h             text working-tree-encoding=GBK
+Source/slash2/Public/Interfaces/HitInterface.h            text working-tree-encoding=GBK
+Source/slash2/Public/Items/Treasure.h                     text working-tree-encoding=GBK
+Source/slash2/Public/Items/Weapons/Weapon.h               text working-tree-encoding=GBK
+
+# ---------- 其余 UTF-8 源码 ----------
+*.h    text
+*.cpp  text
+*.cs   text
+*.ini  text
+*.md   text
+*.txt  text
+*.json text
