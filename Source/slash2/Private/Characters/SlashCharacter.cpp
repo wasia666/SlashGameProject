@@ -4,10 +4,12 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GroomComponent.h" 
+#include "Components/AttributeComponent.h"
 #include "Items/Items.h"
 #include "Items/Weapons/Weapon.h"
 #include "Animation/AnimMontage.h"
 #include "HUD/SlashHUD.h"
+#include "HUD/SlashOverlay.h"
 
 ASlashCharacter::ASlashCharacter()
 {
@@ -86,13 +88,10 @@ void ASlashCharacter::BeginPlay()
 	
 	Tags.Add(FName("EngageableTarget"));
 
-	APlayerController* PlayerController = Cast<APlayerController>(GetController());//GetController()返回的是AController类型的指针，所以需要强转为APlayerController来获取HUD
-    if (PlayerController)
-    {
-        ASlashHUD* SlashHUD = Cast<ASlashHUD>(PlayerController->GetHUD());
-			
-    }
+	InitializeSlashOverlay();
 }
+
+
 
 void ASlashCharacter::MoveForward(float Value)
 {
@@ -248,6 +247,25 @@ void ASlashCharacter::FinishEquipping()
 void ASlashCharacter::HitReactEnd()
 {
 	ActionState = EActionState::EAS_Unoccupied;
+}
+void ASlashCharacter::InitializeSlashOverlay()
+{
+	APlayerController* PlayerController = Cast<APlayerController>(GetController());//GetController()返回的是AController类型的指针，所以需要强转为APlayerController来获取HUD
+	if (PlayerController)
+	{
+		ASlashHUD* SlashHUD = Cast<ASlashHUD>(PlayerController->GetHUD());//获取角色的HUD
+		if (SlashHUD)
+		{
+			SlashOverlay = SlashHUD->GetSlashOverlay();//获取HUD的Overlay
+			if (SlashOverlay)
+			{
+				SlashOverlay->SetHealthBarPercent(Attributes->GetHealthPercent());//设置当前生命值
+				SlashOverlay->SetStaminaBarPercent(1.f);
+				SlashOverlay->SetGold(1);
+				SlashOverlay->SetSouls(1);
+			}
+		}
+	}
 }
 
 

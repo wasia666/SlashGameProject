@@ -12,6 +12,7 @@ class UCameraComponent;
 class USpringArmComponent;
 class UGroomComponent;
 class AItems;
+class USlashOverlay;
 
 UCLASS()
 class SLASH2_API ASlashCharacter : public ABaseCharacter
@@ -27,6 +28,7 @@ public:
 	
 protected:
 	virtual void BeginPlay() override;
+
 	// 输入处理函数
 	void MoveForward(float Value);
 	void MoveRight(float Value);
@@ -58,6 +60,7 @@ protected:
 	void HitReactEnd();
 private:
 
+	void InitializeSlashOverlay();
 	/* 角色组件 */
 
 	UPROPERTY(VisibleAnywhere)
@@ -88,6 +91,9 @@ private:
 
 	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))//允许在Blueprint中访问私人变量
 	EActionState ActionState = EActionState::EAS_Unoccupied;//当前角色为空闲状态
+
+	UPROPERTY()
+	USlashOverlay* SlashOverlay;
 
 public:
 	FORCEINLINE void SetOverlappingItem(AItems* Item){ OverlappingItem = Item;}//将指针的物品转换为OverlappingItem实例
