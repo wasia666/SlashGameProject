@@ -38,7 +38,7 @@ protected:
 	/* </AActor> */
 
 	/* <ABaseCharacter> */
-	void Die(const FVector& ImpactPoint);
+	virtual void Die(const FVector& ImpactPoint) override;
 	virtual void Attack() override;
 	virtual bool CanAttack() override;
 	virtual void HandleDamage(float DamageAmount) override;
@@ -46,8 +46,7 @@ protected:
 	/* </ABaseCharacter> */
 	
 
-	UPROPERTY(BlueprintReadOnly)
-	EDeathPose DeathPose;
+	
 
 	UPROPERTY(BlueprintReadOnly)
 	EEnemyState EnemyState = EEnemyState::EES_Patrolling;//设置敌人默认状态为巡逻
@@ -79,7 +78,6 @@ private:
 	bool InTargetRange(AActor* Target, double Radius);
 	void MoveToTarget(AActor* Target);
 	AActor* ChoosePatrolTarget();
-	void PlayEnemyDeathMontage(const FName SelectIionName);
 	void SpawnDefultWeapon();
 	
 

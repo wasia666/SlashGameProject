@@ -62,16 +62,29 @@ void ASlashCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
     PlayerInputComponent->BindAxis(FName("LookUp"), this, &ASlashCharacter::LookUp);//绑定抬头
     PlayerInputComponent->BindAxis(FName("MoveRight"), this, &ASlashCharacter::MoveRight);
 
-	PlayerInputComponent->BindAction(FName("Jump"), IE_Pressed, this, &ACharacter::Jump);//绑定跳跃键(空格键)
+	PlayerInputComponent->BindAction(FName("Jump"), IE_Pressed, this, &ASlashCharacter::Jump);//绑定跳跃键(空格键)
 	PlayerInputComponent->BindAction(FName("Equip"), IE_Pressed, this, &ASlashCharacter::EKeyPressed);//绑定装备键(E键)
 	PlayerInputComponent->BindAction(FName("Attack"), IE_Pressed, this, &ASlashCharacter::Attack);//绑定攻击键(鼠标左键)
 }
 
+void ASlashCharacter::Jump()
+{
+	if (IsUnoccupied())
+	{
+		Super::Jump();//如果角色空闲，则执行跳跃
+	}
+}
+
+
+
 float ASlashCharacter::TakeDamage(float DamageAmount, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	HandleDamage(DamageAmount);
+	HandleDamage(DamageAmount);//处理受到的伤害
+	SetHUDHealth();
 	return DamageAmount;
 }
+
+
 
 void ASlashCharacter::GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter)
 {
@@ -79,7 +92,14 @@ void ASlashCharacter::GetHit_Implementation(const FVector& ImpactPoint, AActor* 
 	
 	SetWeaponCollisionEnabled(ECollisionEnabled::NoCollision);
 
-	ActionState = EActionState::EAS_HitReaction;//角色被攻击状态
+	if (Attributes && Attributes->GetHealthPercent() > 0.f)
+	{
+		ActionState = EActionState::EAS_HitReaction;//角色被攻击状态
+	}
+	else
+	{
+		Die(ImpactPoint);// 修复:血量归零时进入死亡流程(播放死亡蒙太奇 + 锁定操作)
+	}
 }
 
 void ASlashCharacter::BeginPlay()
@@ -199,6 +219,15 @@ void ASlashCharacter::PlayEquipMontage(const FName& SectionName)
     }
 }
 
+void ASlashCharacter::Die(const FVector& ImpactPoint)
+{
+	if (ActionState == EActionState::EAS_Dead) return;// 修复:已经死亡,避免尸体被重复命中时反复重播死亡动画
+	ActionState = EActionState::EAS_Dead;
+	Super::Die(ImpactPoint);
+	DisableMeshCollision();
+	GetCharacterMovement()->StopMovementImmediately();// 修复:死亡瞬间清掉残余速度,不再滑步
+}
+
 bool ASlashCharacter::CanDisarm()
 {
 	return ActionState == EActionState::EAS_Unoccupied && CharacterState != ECharacterState::ECS_Unequipped;//角色空闲且装备武器
@@ -248,6 +277,11 @@ void ASlashCharacter::HitReactEnd()
 {
 	ActionState = EActionState::EAS_Unoccupied;
 }
+bool ASlashCharacter::IsUnoccupied()
+{
+	return ActionState == EActionState::EAS_Unoccupied;
+}
+
 void ASlashCharacter::InitializeSlashOverlay()
 {
 	APlayerController* PlayerController = Cast<APlayerController>(GetController());//GetController()返回的是AController类型的指针，所以需要强转为APlayerController来获取HUD
@@ -268,6 +302,13 @@ void ASlashCharacter::InitializeSlashOverlay()
 	}
 }
 
+void ASlashCharacter::SetHUDHealth()
+{
+	if (SlashOverlay && Attributes)
+	{
+		SlashOverlay->SetHealthBarPercent(Attributes->GetHealthPercent());//设置ui生命值百分比与slashCharacter的属性同步
+	}
+}
 
 
 

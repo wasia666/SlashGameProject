@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Interfaces/HitInterface.h"
+#include "Characters/CharacterTypes.h"
 #include "BaseCharacter.generated.h"
 
 class AWeapon;
@@ -26,7 +27,7 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter) override;
 	virtual void Attack();
-	virtual void Die();
+	virtual void Die(const FVector& ImpactPoint);
 	void DirectionalHitReact(const FVector& ImpactPoint);
 	virtual void HandleDamage(float DamageAmount);
 	void PlayHitSound(const FVector& ImpactPoint);
@@ -34,11 +35,12 @@ protected:
 	void DisableCapsule();
 	virtual bool CanAttack();
 	bool IsAlive();
+	void DisableMeshCollision();
 
 	/* Montage */
 	void PlayHitReactMontage(const FName& SectionName);
 	virtual int32 PlayAttackMontage();
-	virtual int32 PlayDeathMontage();
+	virtual void PlayDeathMontage(const FName SelectionName);
 	void StopAttackMontage();
 
 	/* 受击蒙太奇(HitReactMontage)在基类中是 private,
@@ -63,6 +65,8 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = Montages)
 	UAnimMontage* DeathMontage;//在蓝图中播放死亡动画蒙太奇
 
+	UPROPERTY(BlueprintReadOnly)
+	EDeathPose DeathPose = EDeathPose::EDP_DeathFromFront;
 	/*
 	组件
 	*/
@@ -74,6 +78,8 @@ protected:
 
     UPROPERTY(EditAnywhere, Category = Combats)
 	double WarpTargetDistance = 75.f;
+
+
 private:
 
 	void PlayMontageSection(UAnimMontage* Montage, const FName& SectionName);
@@ -104,4 +110,6 @@ UPROPERTY(EditDefaultsOnly, Category = Combats)
 
 	UPROPERTY(EditAnywhere, Category = Combats)
 	TArray<FName> DeathMontageSections;//攻击动画蒙太奇的片段
+public:
+	FORCEINLINE TEnumAsByte<EDeathPose> GetDeathPose() const { return DeathPose; }
 };

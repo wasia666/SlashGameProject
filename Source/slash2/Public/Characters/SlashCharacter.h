@@ -23,7 +23,9 @@ public:
 	ASlashCharacter();
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	bool IsUnoccupied();
 	virtual float TakeDamage(float DamageAmount, const FDamageEvent& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
+
 	virtual void GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter) override;
 	
 protected:
@@ -43,6 +45,7 @@ protected:
 	virtual bool CanAttack() override;//判断是否可以攻击
 	// 装备处理函数
 	void PlayEquipMontage(const FName& SectionName);//装备动画
+	virtual void Die(const FVector& ImpactPoint) override;
 	bool CanDisarm();//判断是否可以卸下
 	bool CanArm();//判断是否可以装备
     void Arm();
@@ -59,8 +62,10 @@ protected:
 	UFUNCTION(BlueprintCallable)
 	void HitReactEnd();
 private:
-
+	virtual void Jump() override;
 	void InitializeSlashOverlay();
+	void SetHUDHealth();
+	void PlaySlashCharacterDeathMontage(const FName SelectionName);
 	/* 角色组件 */
 
 	UPROPERTY(VisibleAnywhere)
@@ -98,4 +103,5 @@ private:
 public:
 	FORCEINLINE void SetOverlappingItem(AItems* Item){ OverlappingItem = Item;}//将指针的物品转换为OverlappingItem实例
 	FORCEINLINE ECharacterState GetCharacterState() const { return CharacterState; }//将CharacterState转换为public 成员变量，用于SlashAnimInstance文件使用
+    FORCEINLINE EActionState GetActionState() const { return ActionState; }//将ActionState转换为public, 成员变量，用于SlashAnimInstance文件使用
 };

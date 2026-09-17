@@ -160,54 +160,12 @@ void AEnemy::BeginPlay()
 void AEnemy::Die(const FVector& ImpactPoint)
 {
 	EnemyState = EEnemyState::EES_Dead;//设置状态为死亡
-
-	const FVector Forward = GetActorForwardVector();//获取角色当前的朝向单位向量
-	//将撞击点降低到actor的Z轴，也就是投影到actor的Z轴
-	const FVector ImpactLower(ImpactPoint.X, ImpactPoint.Y, GetActorLocation().Z);
-
-	const FVector ToHit = (ImpactLower - GetActorLocation()).GetSafeNormal();//获取角色和 ImpactLower之间的向量,并且将这个向量单位化
-
-	//a*b = |a||b|cos(角度)
-	const double CosTheta = FVector::DotProduct(Forward, ToHit);//获取Forward和ToHit之间的点积
-	//通过反三角函数获取弧度
-	double Theta = FMath::Acos(CosTheta);//弧度
-	//弧度转换为角度
-	Theta = FMath::RadiansToDegrees(Theta);
-
-	//如果叉积的Z轴方向为正，则角度为正，否则为负
-	const FVector CrossProduct = FVector::CrossProduct(Forward, ToHit);//获取Forward和ToHit之间的叉积
-	if (CrossProduct.Z < 0)//ue引擎的坐标系Z轴方向为正，所以需要乘以-1
-	{
-		Theta *= -1.f;
-	}
-	/*
-	/根据角度判断角色被攻击的方向
-	*/
-	FName Section("FromBehind");
-	DeathPose = EDeathPose::EDP_DeathFromBehind;
-	if (Theta >= -45.f && Theta < 45.f)
-	{
-		Section = FName("FromFront");//角色被正面攻击
-		DeathPose = EDeathPose::EDP_DeathFromFront;
-	}
-	else if (Theta >= 45.f && Theta < 135.f)
-	{
-		Section = FName("FromLeft");//角色被左侧攻击
-		DeathPose = EDeathPose::EDP_DeathFromLeft;
-	}
-	else if (Theta >= -135.f && Theta < -45.f)
-	{
-		Section = FName("FromRight");//角色被右侧攻击
-		DeathPose = EDeathPose::EDP_DeathFromRight;
-	}
-
-	PlayEnemyDeathMontage(Section);
+	Super::Die(ImpactPoint);
 	ClearAttackTimer();
 	HideHealthBar();
 	DisableCapsule();
 	SetLifeSpan(DeathLifeSpan);//敌人在死亡三秒后销毁
 	GetCharacterMovement()->bOrientRotationToMovement = false;
-	SetWeaponCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 void AEnemy::Attack()
@@ -431,16 +389,6 @@ AActor* AEnemy::ChoosePatrolTarget()
 	}
 
 	return nullptr;
-}
-
-void AEnemy::PlayEnemyDeathMontage(const FName SelectionName)
-{
-	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();//获取动画实例
-	if (AnimInstance && DeathMontage)//动画实例和HitReactMontage都不为空
-	{
-		AnimInstance->Montage_Play(DeathMontage);
-		AnimInstance->Montage_JumpToSection(SelectionName, DeathMontage);
-	}
 }
 
 void AEnemy::SpawnDefultWeapon()
