@@ -2,7 +2,7 @@
 
 一个基于 **Unreal Engine 5.0** 的第三人称 ARPG 动作游戏原型（C++ + 蓝图混合开发）。
 
-包含近战连击、装备/收刀、方向性受击反馈、Chaos 破碎、战利品拾取、
+包含近战连击、装备/收刀、方向性受击反馈、四方向死亡动画、Chaos 破碎、战利品拾取、
 敌人 AI 巡逻-追击-攻击状态机以及 HUD 血条等完整战斗循环。
 
 > ⚠️ **本仓库只包含项目自有的核心内容**。第三方素材库（AncientContent、Megascans 贴图、
@@ -57,6 +57,25 @@ EES_Patrolling → EES_Chasing → EES_Attacking → EES_Engaged
 - 受击硬直（`bHitReacting`）期间挂起 Tick 与 AI 逻辑，待受击蒙太奇播完再恢复；
   被连击打断时由 `OnHitReactMontageEnded` 等待最新一次动画结束。
 - 死亡时按受击方向选择 `EDeathPose`（前/后/左/右），`DeathLifeSpan` 秒后销毁。
+- **玩家死亡后自动脱战**：`CheckCombatTarget` 检测到目标带 `Dead` 标签时，立即清空攻击计时器、
+  `LostInterest()` 清空目标并隐藏血条、`StartPatrolling()` 回到巡逻（覆盖追击与攻击两条路径，
+  正在挥砍时不打断，交给 `AttackEnd` 收尾）；`PawnSeen` 索敌时同样排除已死亡目标，
+  避免敌人回巡逻后被尸体反复拉回战斗。
+
+### 死亡系统
+
+`ABaseCharacter::Die(const FVector& ImpactPoint, AActor* Hitter)` 用点积/叉积算出受击方向，
+**方向取攻击者 `Hitter` 的位置**（而非受击点，避免碰撞点偏移导致方向误判），
+据此选出死亡蒙太奇 section 并写入 `DeathPose` 供动画蓝图读取；同时给角色打上 `Dead` 标签。
+
+- `ASlashCharacter::Die` — 置 `EActionState::EAS_Dead` 锁住移动 / 跳跃 / 攻击 / 装备输入，
+  关闭网格碰撞并立刻清除残余速度；重复命中不会重播死亡动画。
+- `AEnemy::Die` — 关血条、禁胶囊、`SetLifeSpan(DeathLifeSpan)` 后销毁。
+- 死亡蒙太奇 `AM_EchoDeath` 的四个 section 名为 **`DeathFromFront` / `DeathFromBehind` /
+  `DeathFromLeft` / `DeathFromRight`**（注意带 `Death` 前缀，与受击蒙太奇不同）。
+  `PlayDeathMontage` 会先用 `UAnimMontage::IsValidSectionName` 校验并输出告警——
+  section 名不匹配时 `Montage_JumpToSection` 会**静默失败**，导致每次都从第一段开始播。
+- 死亡姿势序列位于 `Content/Blueprints/Characters/Animations/Death/`。
 
 ### 破碎与破坏
 
@@ -66,7 +85,10 @@ EES_Patrolling → EES_Chasing → EES_Attacking → EES_Engaged
 
 ### 动画与 HUD
 
-- `USlashAnimInstance` — 向动画蓝图暴露 `GroundSpeed`、`IsFalling`、`CharacterState`。
+- `USlashAnimInstance` — 向动画蓝图暴露 `GroundSpeed`、`IsFalling`、`CharacterState`、
+  `ActionState`、`DeathPose`。
+- `ASlashHUD`（继承 `AHUD`）— 在 `BeginPlay` 中按 `SlashOverlayClass` 创建 `USlashOverlay`
+  并 `AddToViewport`，对应蓝图 `Content/Blueprints/HUD/BP_SlashHUD.uasset`。
 - `USlashOverlay` — 玩家 HUD：生命/耐力进度条、金币与灵魂计数（`BindWidget` 绑定 `WBP_SlashOverlay`）。
 - `UHealthBar` / `UHealthBarComponent` — 敌人头顶血条（绑定 `WBP_HealthBar`）。
 
@@ -79,20 +101,23 @@ slash2.uproject                 工程文件（UE 5.0）
 Config/                         引擎 / 输入 / 游戏模式配置
 Source/slash2/
   Public/ · Private/
-    Characters/                 角色、动画实例、状态枚举
+    Characters/                 角色、动画实例、死亡姿势与状态枚举
     Components/                 属性组件
     Interfaces/                 命中接口
     Items/                      拾取物、武器、战利品
     Enemy/                      敌人 AI
     Breakable/                  Chaos 破碎物
-    HUD/                        血条与 HUD 控件
+    HUD/                        ASlashHUD、血条与 HUD 控件
     Pawns/                      Bird Pawn
 Content/
-  Blueprints/                   全部蓝图（角色 / 敌人 / 拾取物 / HUD / GameMode）
+  Blueprints/                   全部蓝图（角色与动画 / 敌人 / 拾取物 / HUD / GameMode）
+    Characters/Animations/      攻击 / 受击 / 装备 / 死亡蒙太奇，Death/ 存放死亡姿势序列
   Map/                          关卡：NewMap（World Partition）、TestMap
   __ExternalActors__/           关卡外部 Actor（World Partition 数据，NewMap 主体内容）
   Assets/                       音效、UI 贴图、中文字体
-  Effects/ · Destructibles/ · Landscape/
+  Effects/                      粒子与 Niagara 特效（含 NS_Soul 灵魂特效）
+  Destructibles/                Chaos 几何集合（破碎物）
+  Landscape/                    地形材质与图层信息
 Assests/Mixamo/                 Mixamo 角色与动画的 FBX 源文件（含贴图与音效源文件）
 ```
 
