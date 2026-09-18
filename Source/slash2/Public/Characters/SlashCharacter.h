@@ -45,7 +45,7 @@ protected:
 	virtual bool CanAttack() override;//判断是否可以攻击
 	// 装备处理函数
 	void PlayEquipMontage(const FName& SectionName);//装备动画
-	virtual void Die(const FVector& ImpactPoint) override;
+	virtual void Die(const FVector& ImpactPoint, AActor* Hitter) override;
 	bool CanDisarm();//判断是否可以卸下
 	bool CanArm();//判断是否可以装备
     void Arm();

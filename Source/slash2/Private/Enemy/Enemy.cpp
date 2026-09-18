@@ -90,7 +90,7 @@ void AEnemy::GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter)
 	}
 	else
 	{
-		Die(ImpactPoint);
+		Die(ImpactPoint,Hitter);
 	}
 	ClearPatrolTimer();
 	ClearAttackTimer();
@@ -157,10 +157,10 @@ void AEnemy::BeginPlay()
 	}
 }
 
-void AEnemy::Die(const FVector& ImpactPoint)
+void AEnemy::Die(const FVector& ImpactPoint, AActor* Hitter)
 {
 	EnemyState = EEnemyState::EES_Dead;//设置状态为死亡
-	Super::Die(ImpactPoint);
+	Super::Die(ImpactPoint,Hitter);
 	ClearAttackTimer();
 	HideHealthBar();
 	DisableCapsule();
@@ -170,9 +170,9 @@ void AEnemy::Die(const FVector& ImpactPoint)
 
 void AEnemy::Attack()
 {
-	EnemyState = EEnemyState::EES_Engaged;
-	UE_LOG(LogTemp, Warning, TEXT("Enemy Engaging"));
 	Super::Attack();
+	if(CombatTarget == nullptr) return;//敌人没有目标,则返回
+	EnemyState = EEnemyState::EES_Engaged;//设置状态为战斗
 	PlayAttackMontage();
 
 }
@@ -183,7 +183,8 @@ bool AEnemy::CanAttack()
 		IsInsideAttackRadius()
 		&& !IsAttacking()
 		&& !IsEngaged()
-		&& !IsDead();
+		&& !IsDead()
+		&& !(CombatTarget && CombatTarget->ActorHasTag(FName("Dead")));// 保险:目标已死亡则不再攻击
 	return CanAttack;
 }
 
@@ -224,6 +225,17 @@ void AEnemy::CheckPatrolTarget()
 
 void AEnemy::CheckCombatTarget()
 {
+	// 目标已死亡:立刻脱战,回去做自己的事(覆盖追击与攻击两条路径)
+	if (CombatTarget && CombatTarget->ActorHasTag(FName("Dead")))
+	{
+		ClearAttackTimer();
+		LostInterest();//CombatTarget置空并隐藏血条;之后IsOutsideCombatRadius()会返回true,自然转入巡逻
+		if (!IsEngaged())//正在挥砍时不打断,交给AttackEnd收尾
+		{
+			StartPatrolling();
+		}
+		return;
+	}
 	if (IsOutsideCombatRadius())//如果Enemy距离CombatTarget大于检测半径，也就是目标在战斗检测范围外
 	{
 		ClearAttackTimer();
@@ -410,6 +422,7 @@ void AEnemy::PawnSeen(APawn* SeenPawn)
 		EnemyState != EEnemyState::EES_Dead &&
 		EnemyState != EEnemyState::EES_Chasing &&
 		EnemyState < EEnemyState::EES_Attacking &&
+		!SeenPawn->ActorHasTag(FName("Dead")) &&// 已死亡的玩家不再是索敌目标
 		SeenPawn->ActorHasTag(FName("EngageableTarget"));
 	if (bShouldChaseTarget)
 	{

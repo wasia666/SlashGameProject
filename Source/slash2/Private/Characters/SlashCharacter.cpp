@@ -98,7 +98,7 @@ void ASlashCharacter::GetHit_Implementation(const FVector& ImpactPoint, AActor* 
 	}
 	else
 	{
-		Die(ImpactPoint);// 修复:血量归零时进入死亡流程(播放死亡蒙太奇 + 锁定操作)
+		Die(ImpactPoint,Hitter);// 修复:血量归零时进入死亡流程(播放死亡蒙太奇 + 锁定操作)
 	}
 }
 
@@ -219,11 +219,11 @@ void ASlashCharacter::PlayEquipMontage(const FName& SectionName)
     }
 }
 
-void ASlashCharacter::Die(const FVector& ImpactPoint)
+void ASlashCharacter::Die(const FVector& ImpactPoint, AActor* Hitter)
 {
 	if (ActionState == EActionState::EAS_Dead) return;// 修复:已经死亡,避免尸体被重复命中时反复重播死亡动画
 	ActionState = EActionState::EAS_Dead;
-	Super::Die(ImpactPoint);
+	Super::Die(ImpactPoint,Hitter);
 	DisableMeshCollision();
 	GetCharacterMovement()->StopMovementImmediately();// 修复:死亡瞬间清掉残余速度,不再滑步
 }

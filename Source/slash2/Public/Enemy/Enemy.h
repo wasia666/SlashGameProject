@@ -38,7 +38,7 @@ protected:
 	/* </AActor> */
 
 	/* <ABaseCharacter> */
-	virtual void Die(const FVector& ImpactPoint) override;
+	virtual void Die(const FVector& ImpactPoint, AActor* Hitter) override;
 	virtual void Attack() override;
 	virtual bool CanAttack() override;
 	virtual void HandleDamage(float DamageAmount) override;

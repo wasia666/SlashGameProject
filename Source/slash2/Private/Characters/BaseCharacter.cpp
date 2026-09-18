@@ -36,10 +36,22 @@ void ABaseCharacter::GetHit_Implementation(const FVector& ImpactPoint, AActor* H
 
 void ABaseCharacter::Attack()
 {
-	
+	if (CombatTarget && CombatTarget->ActorHasTag(FName("Dead")))
+	{
+		CombatTarget = nullptr;//如果目标死亡，则将CombatTarget设置为空
+	}
 }
 
-void ABaseCharacter::Die(const FVector& ImpactPoint)
+void ABaseCharacter::Die(const FVector& ImpactPoint, AActor* Hitter)
+{
+	Tags.Add(FName("Dead"));
+	if (Hitter)
+	{
+		PlayerDeadFromDirctionalImpactPiont(Hitter->GetActorLocation());
+	}
+}
+
+void ABaseCharacter::PlayerDeadFromDirctionalImpactPiont(const FVector& ImpactPoint)
 {
 	const FVector Forward = GetActorForwardVector();//获取角色当前的朝向单位向量
 	//将撞击点降低到actor的Z轴，也就是投影到actor的Z轴
@@ -80,7 +92,7 @@ void ABaseCharacter::Die(const FVector& ImpactPoint)
 		Section = FName("DeathFromRight");//角色被右侧攻击
 		DeathPose = EDeathPose::EDP_DeathFromRight;
 	}
-    PlayDeathMontage(Section);
+	PlayDeathMontage(Section);
 	SetWeaponCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 

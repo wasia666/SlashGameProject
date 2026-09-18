@@ -27,7 +27,8 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter) override;
 	virtual void Attack();
-	virtual void Die(const FVector& ImpactPoint);
+	virtual void Die(const FVector& ImpactPoint, AActor* Hitter);
+	void PlayerDeadFromDirctionalImpactPiont(const FVector& ImpactPoint);
 	void DirectionalHitReact(const FVector& ImpactPoint);
 	virtual void HandleDamage(float DamageAmount);
 	void PlayHitSound(const FVector& ImpactPoint);
