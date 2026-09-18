@@ -5,6 +5,7 @@
 #include "Components/AttributeComponent.h"
 #include"Components/CapsuleComponent.h"
 #include"Kismet/GameplayStatics.h"
+#include "Animation/AnimMontage.h"// 修复:校验蒙太奇 section 名,避免 JumpToSection 静默失败
 #include "Enemy/Enemy.h"// 修复:在SetWeaponCollisionEnabled中区分敌人与玩家
 
 
@@ -62,21 +63,21 @@ void ABaseCharacter::Die(const FVector& ImpactPoint)
 	/*
 	/根据角度判断角色被攻击的方向
 	*/
-	FName Section("FromBehind");
+	FName Section("DeathFromBehind");
 	DeathPose = EDeathPose::EDP_DeathFromBehind;
 	if (Theta >= -45.f && Theta < 45.f)
 	{
-		Section = FName("FromFront");//角色被正面攻击
+		Section = FName("DeathFromFront");//角色被正面攻击
 		DeathPose = EDeathPose::EDP_DeathFromFront;
 	}
 	else if (Theta >= 45.f && Theta < 135.f)
 	{
-		Section = FName("FromLeft");//角色被左侧攻击
+		Section = FName("DeathFromLeft");//角色被左侧攻击
 		DeathPose = EDeathPose::EDP_DeathFromLeft;
 	}
 	else if (Theta >= -135.f && Theta < -45.f)
 	{
-		Section = FName("FromRight");//角色被右侧攻击
+		Section = FName("DeathFromRight");//角色被右侧攻击
 		DeathPose = EDeathPose::EDP_DeathFromRight;
 	}
     PlayDeathMontage(Section);
@@ -107,6 +108,10 @@ void ABaseCharacter::PlayDeathMontage(const FName SelectionName)
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();//获取动画实例
 	if (AnimInstance && DeathMontage)//动画实例和HitReactMontage都不为空
 	{
+		if (!DeathMontage->IsValidSectionName(SelectionName))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Death] Montage %s has no section '%s' - JumpToSection will be ignored and the first section will play."), *DeathMontage->GetName(), *SelectionName.ToString());
+		}
 		AnimInstance->Montage_Play(DeathMontage);
 		AnimInstance->Montage_JumpToSection(SelectionName, DeathMontage);
 	}

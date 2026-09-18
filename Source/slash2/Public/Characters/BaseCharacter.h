@@ -66,7 +66,7 @@ protected:
 	UAnimMontage* DeathMontage;//在蓝图中播放死亡动画蒙太奇
 
 	UPROPERTY(BlueprintReadOnly)
-	EDeathPose DeathPose = EDeathPose::EDP_DeathFromFront;
+	EDeathPose DeathPose;
 	/*
 	组件
 	*/
