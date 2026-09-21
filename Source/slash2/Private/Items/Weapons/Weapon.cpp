@@ -45,9 +45,9 @@ void AWeapon::Equip(USceneComponent* InParent, FName InSocketName, AActor* NewOw
 
 void AWeapon::DeactivateEmbers()
 {
-	if (EmbersEffect)
+	if (ItemEffect)
 	{
-		EmbersEffect->Deactivate();//当装备上武器的时候禁用粒子效果
+		ItemEffect->Deactivate();//当装备上武器的时候禁用粒子效果
 	}
 }
 

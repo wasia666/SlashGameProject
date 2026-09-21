@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "BaseCharacter.h"
 #include "CharacterTypes.h"
+#include "Interfaces/PickupInterface.h"
 #include "SlashCharacter.generated.h"
 
 
@@ -13,9 +14,10 @@ class USpringArmComponent;
 class UGroomComponent;
 class AItems;
 class USlashOverlay;
+class ASoul;
 
 UCLASS()
-class SLASH2_API ASlashCharacter : public ABaseCharacter
+class SLASH2_API ASlashCharacter : public ABaseCharacter,public IPickupInterface
 {
 	GENERATED_BODY()
 
@@ -27,6 +29,8 @@ public:
 	virtual float TakeDamage(float DamageAmount, const FDamageEvent& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
 
 	virtual void GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter) override;
+	virtual void SetOverlappingItem(AItems* Item) override;
+	virtual void AddSouls(ASouls* Soul) override;
 	
 protected:
 	virtual void BeginPlay() override;
@@ -65,7 +69,6 @@ private:
 	virtual void Jump() override;
 	void InitializeSlashOverlay();
 	void SetHUDHealth();
-	void PlaySlashCharacterDeathMontage(const FName SelectionName);
 	/* 角色组件 */
 
 	UPROPERTY(VisibleAnywhere)
@@ -101,7 +104,6 @@ private:
 	USlashOverlay* SlashOverlay;
 
 public:
-	FORCEINLINE void SetOverlappingItem(AItems* Item){ OverlappingItem = Item;}//将指针的物品转换为OverlappingItem实例
 	FORCEINLINE ECharacterState GetCharacterState() const { return CharacterState; }//将CharacterState转换为public 成员变量，用于SlashAnimInstance文件使用
     FORCEINLINE EActionState GetActionState() const { return ActionState; }//将ActionState转换为public, 成员变量，用于SlashAnimInstance文件使用
 };
