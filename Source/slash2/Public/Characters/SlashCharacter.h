@@ -14,7 +14,7 @@ class USpringArmComponent;
 class UGroomComponent;
 class AItems;
 class USlashOverlay;
-class ASoul;
+class ASouls;
 
 UCLASS()
 class SLASH2_API ASlashCharacter : public ABaseCharacter,public IPickupInterface

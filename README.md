@@ -2,7 +2,7 @@
 
 一个基于 **Unreal Engine 5.0** 的第三人称 ARPG 动作游戏原型（C++ + 蓝图混合开发）。
 
-包含近战连击、装备/收刀、方向性受击反馈、四方向死亡动画、Chaos 破碎、战利品拾取、
+包含近战连击、装备/收刀、方向性受击反馈、四方向死亡动画、Chaos 破碎、战利品与灵魂拾取、
 敌人 AI 巡逻-追击-攻击状态机以及 HUD 血条等完整战斗循环。
 
 > ⚠️ **本仓库只包含项目自有的核心内容**。第三方素材库（AncientContent、Megascans 贴图、
@@ -36,12 +36,16 @@
 | `UAttributeComponent` | 属性组件，管理 `Health` / `MaxHealth`，提供 `ReceiveDamage`、`GetHealthPercent`、`IsAlive`。 |
 | `IHitInterface` | 命中接口（`BlueprintNativeEvent`），武器命中时回调 `GetHit`，由 C++ 与蓝图共同实现。 |
 
-### 武器与命中检测
+### 拾取物、武器与命中检测
 
-- `AItems` — 拾取物基类：悬浮正弦动画、`SphereComponent` 重叠检测、Niagara 余烬特效。
+- `IPickupInterface` — 拾取接口，定义 `SetOverlappingItem(AItems*)` 与 `AddSouls(ASouls*)`。
+  拾取物只与接口交互，不再依赖具体的角色类。
+- `AItems` — 拾取物基类：悬浮正弦动画、`SphereComponent` 重叠检测、Niagara 特效（`ItemEffect`）；
+  重叠时通过 `IPickupInterface::SetOverlappingItem` 把自身交给拾取者。
 - `AWeapon` — 武器：`BoxTrace` 盒型扫掠 + `Tick` 逐帧检测双保险（修复攻击时偶发打不碎物体的问题），
   命中后按 `Damage` 结算并调用 `ExecuteGetHit` 触发 `CreateFields`（Chaos 力场）。
 - `ATreasure` — 战利品：拾取后累加金币并播放音效。
+- `ASouls` — 灵魂拾取物：重叠时通过 `IPickupInterface::AddSouls` 回调拾取者，随后销毁自身。
 
 ### 敌人 AI
 
@@ -103,8 +107,8 @@ Source/slash2/
   Public/ · Private/
     Characters/                 角色、动画实例、死亡姿势与状态枚举
     Components/                 属性组件
-    Interfaces/                 命中接口
-    Items/                      拾取物、武器、战利品
+    Interfaces/                 命中接口与拾取接口
+    Items/                      拾取物、武器、战利品、灵魂
     Enemy/                      敌人 AI
     Breakable/                  Chaos 破碎物
     HUD/                        ASlashHUD、血条与 HUD 控件
@@ -112,10 +116,11 @@ Source/slash2/
 Content/
   Blueprints/                   全部蓝图（角色与动画 / 敌人 / 拾取物 / HUD / GameMode）
     Characters/Animations/      攻击 / 受击 / 装备 / 死亡蒙太奇，Death/ 存放死亡姿势序列
+    Items/Pickups/              Treasures/ 战利品蓝图、Souls/ 灵魂蓝图
   Map/                          关卡：NewMap（World Partition）、TestMap
   __ExternalActors__/           关卡外部 Actor（World Partition 数据，NewMap 主体内容）
   Assets/                       音效、UI 贴图、中文字体
-  Effects/                      粒子与 Niagara 特效（含 NS_Soul 灵魂特效）
+  Effects/                      粒子、Niagara 特效与相关材质（NS_Soul / M_SoulGlow）
   Destructibles/                Chaos 几何集合（破碎物）
   Landscape/                    地形材质与图层信息
 Assests/Mixamo/                 Mixamo 角色与动画的 FBX 源文件（含贴图与音效源文件）
