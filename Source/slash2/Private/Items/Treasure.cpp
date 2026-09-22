@@ -11,10 +11,7 @@ void ATreasure::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor
     ASlashCharacter* SlashCharacter = Cast<ASlashCharacter>(OtherActor);
     if (SlashCharacter)
     {
-        if (PickupSound)
-        {
-            UGameplayStatics::PlaySoundAtLocation(this, PickupSound, GetActorLocation());//在宝藏处播放打开声效
-        }
+       SpawnPickupSound();
         Destroy();//将模型销毁
     }
 }
