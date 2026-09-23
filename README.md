@@ -56,26 +56,38 @@
 每帧由 `Tick` 分发：`EES_NoState` / `EES_Patrolling` 走 `CheckPatrolTarget()`，
 `EES_Chasing` 及以上走 `CheckCombatTarget()`。
 
-```mermaid
-stateDiagram-v2
-    [*] --> EES_Patrolling
+```
+                       ┌──────────────────┐
+   ┌──────────────────►│  EES_Patrolling  │    ◄── [*] 初始状态
+   │                   └────────┬─────────┘      无目标 / 目标超出 CombatRadius / 目标死亡
+   │                            │  PawnSeen() 感知到可交战目标
+   │                            ▼
+   │                   ┌──────────────────┐
+   ├──────────────────►│   EES_Chasing    │    ◄── 目标在 CombatRadius 内
+   │                   └────────┬─────────┘
+   │                            │  进入 AttackRadius
+   │                            ▼
+   │                   ┌──────────────────┐
+   ├──────────────────►│  EES_Attacking   │    ◄── 目标已在 AttackRadius 内
+   │                   └────────┬─────────┘
+   │                            │  攻击计时器到点 → Attack()
+   │                            ▼
+   │                   ┌──────────────────┐
+   │                   │   EES_Engaged    │
+   │                   └────────┬─────────┘
+   │                            │  AttackEnd()（蒙太奇播完）
+   │                            ▼
+   │                   ┌──────────────────┐
+   └───────────────────│   EES_NoState    │
+                       └────────┬─────────┘
+      EES_NoState 经 CheckCombatTarget() 评估后，沿左侧总线回到上面三个状态之一
 
-    EES_Patrolling --> EES_Chasing : PawnSeen() 感知到可交战目标
-    EES_Chasing --> EES_Attacking : 进入 AttackRadius
-    EES_Attacking --> EES_Engaged : 攻击计时器到点 → Attack()
-    EES_Engaged --> EES_NoState : 蒙太奇播完 → AttackEnd()
-
-    EES_NoState --> EES_Patrolling : 重新评估：无目标
-    EES_NoState --> EES_Chasing : 重新评估：目标在 CombatRadius 内
-    EES_NoState --> EES_Attacking : 重新评估：目标已在 AttackRadius 内
-
-    EES_Chasing --> EES_Patrolling : 目标超出 CombatRadius 或已死亡
-    EES_Attacking --> EES_Patrolling : 目标超出 CombatRadius 或已死亡
-
-    EES_Patrolling --> EES_Dead : Die()
-    EES_Chasing --> EES_Dead : Die()
-    EES_Attacking --> EES_Dead : Die()
-    EES_Engaged --> EES_Dead : Die()
+   任意存活状态：
+   EES_Patrolling ──┐
+   EES_Chasing    ──┤
+   EES_Attacking  ──┼─► EES_Dead（终态：Tick 一进来就 return）
+   EES_Engaged    ──┤
+   EES_NoState    ──┘
 ```
 
 - **`EES_Engaged` 不会被中途打断**：此时 `CheckCombatTarget` 里的脱战与追击分支都被 `!IsEngaged()`
