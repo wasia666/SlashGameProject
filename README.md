@@ -32,39 +32,65 @@
 | 类 | 说明 |
 |---|---|
 | `ABaseCharacter` | 战斗基类。实现 `IHitInterface`，负责生命值、伤害结算、蒙太奇驱动的攻击/死亡/受击动画、方向性受击反馈（`DirectionalHitReact`）与 MotionWarping 位移对齐（`GetTranslationWarpTarget` / `GetRotationWarpTarget`）。 |
-| `ASlashCharacter` | 玩家角色。弹簧臂 + 摄像机、Groom 头发/眉毛，通过 `ECharacterState` / `EActionState` 双状态机控制装备与攻击，处理拾取物重叠。 |
-| `UAttributeComponent` | 属性组件，管理 `Health` / `MaxHealth`，提供 `ReceiveDamage`、`GetHealthPercent`、`IsAlive`。 |
+| `ASlashCharacter` | 玩家角色。弹簧臂 + 摄像机、Groom 头发/眉毛，通过 `ECharacterState` / `EActionState` 双状态机控制装备与攻击；实现 `IPickupInterface` 处理拾取并把金币/灵魂同步到 HUD。 |
+| `UAttributeComponent` | 属性组件，管理 `Health` / `MaxHealth` 与金币 `Gold` / 灵魂 `Souls`，提供 `ReceiveDamage`、`GetHealthPercent`、`IsAlive`、`AddGold` / `AddSouls` 及对应 Getter。 |
 | `IHitInterface` | 命中接口（`BlueprintNativeEvent`），武器命中时回调 `GetHit`，由 C++ 与蓝图共同实现。 |
 
 ### 拾取物、武器与命中检测
 
-- `IPickupInterface` — 拾取接口，定义 `SetOverlappingItem(AItems*)` 与 `AddSouls(ASouls*)`。
-  拾取物只与接口交互，不再依赖具体的角色类。
+- `IPickupInterface` — 拾取接口，定义 `SetOverlappingItem(AItems*)`、`AddSouls(ASouls*)` 与
+  `AddGold(ATreasure*)`。拾取物只与接口交互，不再依赖具体的角色类。
 - `AItems` — 拾取物基类：悬浮正弦动画、`SphereComponent` 重叠检测、Niagara 特效（`ItemEffect`）；
   重叠时通过 `IPickupInterface::SetOverlappingItem` 把自身交给拾取者。
+  拾取音效与特效也下沉在这里：`SpawnPickupSound()` / `SpawnPickupSystem()`，
+  分别由 `PickupSound`（`USoundBase`）与 `PickupEffect`（`UNiagaraSystem`）驱动，供各拾取物复用。
 - `AWeapon` — 武器：`BoxTrace` 盒型扫掠 + `Tick` 逐帧检测双保险（修复攻击时偶发打不碎物体的问题），
   命中后按 `Damage` 结算并调用 `ExecuteGetHit` 触发 `CreateFields`（Chaos 力场）。
-- `ATreasure` — 战利品：拾取后累加金币并播放音效。
-- `ASouls` — 灵魂拾取物：重叠时通过 `IPickupInterface::AddSouls` 回调拾取者，随后销毁自身。
+- `ATreasure` — 战利品：重叠时通过 `IPickupInterface::AddGold` 交付金币，播放拾取音效后销毁。
+- `ASouls` — 灵魂拾取物：重叠时通过 `IPickupInterface::AddSouls` 交付灵魂，播放拾取音效与
+  Niagara 特效后销毁；敌人死亡时由 `AEnemy::SpawnSoul()` 按 `SoulClass` 在尸体处掉落。
 
 ### 敌人 AI
 
-`AEnemy` 继承 `ABaseCharacter`，使用 `UPawnSensingComponent` 感知玩家，状态机：
+`AEnemy` 继承 `ABaseCharacter`，使用 `UPawnSensingComponent` 感知玩家。初始状态为 `EES_Patrolling`，
+每帧由 `Tick` 分发：`EES_NoState` / `EES_Patrolling` 走 `CheckPatrolTarget()`，
+`EES_Chasing` 及以上走 `CheckCombatTarget()`。
 
-```
-EES_Patrolling → EES_Chasing → EES_Attacking → EES_Engaged
-                      ↘ EES_Dead ↗
+```mermaid
+stateDiagram-v2
+    [*] --> EES_Patrolling
+
+    EES_Patrolling --> EES_Chasing : PawnSeen() 感知到可交战目标
+    EES_Chasing --> EES_Attacking : 进入 AttackRadius
+    EES_Attacking --> EES_Engaged : 攻击计时器到点 → Attack()
+    EES_Engaged --> EES_NoState : 蒙太奇播完 → AttackEnd()
+
+    EES_NoState --> EES_Patrolling : 重新评估：无目标
+    EES_NoState --> EES_Chasing : 重新评估：目标在 CombatRadius 内
+    EES_NoState --> EES_Attacking : 重新评估：目标已在 AttackRadius 内
+
+    EES_Chasing --> EES_Patrolling : 目标超出 CombatRadius 或已死亡
+    EES_Attacking --> EES_Patrolling : 目标超出 CombatRadius 或已死亡
+
+    EES_Patrolling --> EES_Dead : Die()
+    EES_Chasing --> EES_Dead : Die()
+    EES_Attacking --> EES_Dead : Die()
+    EES_Engaged --> EES_Dead : Die()
 ```
 
+- **`EES_Engaged` 不会被中途打断**：此时 `CheckCombatTarget` 里的脱战与追击分支都被 `!IsEngaged()`
+  挡住，必须等攻击蒙太奇播完、`AttackEnd()` 把状态切回 `EES_NoState` 后再重新评估。
+- `EES_NoState` 只是过渡态：`AttackEnd()` 会立刻调用 `CheckCombatTarget()` 重新决定去向。
+- `EES_Dead` 是终态，`Tick` 一开始就 `return`，不再评估任何 AI。
 - 巡逻半径内的随机点导航（`PatrolTimer` 定时切换），进入 `CombatRadius` 追击、`AttackRadius` 攻击。
 - 头顶血条通过 `UHealthBarComponent` 按需显示/隐藏。
 - 受击硬直（`bHitReacting`）期间挂起 Tick 与 AI 逻辑，待受击蒙太奇播完再恢复；
   被连击打断时由 `OnHitReactMontageEnded` 等待最新一次动画结束。
-- 死亡时按受击方向选择 `EDeathPose`（前/后/左/右），`DeathLifeSpan` 秒后销毁。
+- 死亡时按受击方向选择 `EDeathPose`（前/后/左/右），`SpawnSoul()` 掉落灵魂，
+  `DeathLifeSpan` 秒后销毁。
 - **玩家死亡后自动脱战**：`CheckCombatTarget` 检测到目标带 `Dead` 标签时，立即清空攻击计时器、
-  `LostInterest()` 清空目标并隐藏血条、`StartPatrolling()` 回到巡逻（覆盖追击与攻击两条路径，
-  正在挥砍时不打断，交给 `AttackEnd` 收尾）；`PawnSeen` 索敌时同样排除已死亡目标，
-  避免敌人回巡逻后被尸体反复拉回战斗。
+  `LostInterest()` 清空目标并隐藏血条、`StartPatrolling()` 回到巡逻（覆盖追击与攻击两条路径）；
+  `PawnSeen` 索敌时同样排除已死亡目标，避免敌人回巡逻后被尸体反复拉回战斗。
 
 ### 死亡系统
 

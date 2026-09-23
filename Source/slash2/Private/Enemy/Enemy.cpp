@@ -8,6 +8,7 @@
 #include "Perception/PawnSensingComponent.h"
 #include "HUD/HealthBarComponent.h"
 #include "Items/Weapons/Weapon.h"
+#include "Items/Souls.h"
 
 AEnemy::AEnemy()
 {
@@ -166,6 +167,22 @@ void AEnemy::Die(const FVector& ImpactPoint, AActor* Hitter)
 	DisableCapsule();
 	SetLifeSpan(DeathLifeSpan);//敌人在死亡三秒后销毁
 	GetCharacterMovement()->bOrientRotationToMovement = false;
+	SpawnSoul();
+}
+
+void AEnemy::SpawnSoul()
+{
+	UWorld* World = GetWorld();
+	if (World && SoulClass && Attributes)
+	{
+		const FVector SpawnLocation = GetActorLocation();//掉落灵魂位置在敌人尸体上面
+
+		ASouls* SpawnedSoul = World->SpawnActor<ASouls>(SoulClass, SpawnLocation, GetActorRotation());//如果敌人死亡掉落灵魂
+		if (SpawnedSoul)
+		{
+			SpawnedSoul->SetSouls(Attributes->GetSouls());//设置敌人的灵魂数量
+		}
+	}
 }
 
 void AEnemy::Attack()

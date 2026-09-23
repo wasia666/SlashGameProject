@@ -15,6 +15,7 @@ class UGroomComponent;
 class AItems;
 class USlashOverlay;
 class ASouls;
+class ATreasure;
 
 UCLASS()
 class SLASH2_API ASlashCharacter : public ABaseCharacter,public IPickupInterface
@@ -31,7 +32,7 @@ public:
 	virtual void GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter) override;
 	virtual void SetOverlappingItem(AItems* Item) override;
 	virtual void AddSouls(ASouls* Soul) override;
-	
+	virtual void AddGold(ATreasure* Treasure) override;
 protected:
 	virtual void BeginPlay() override;
 

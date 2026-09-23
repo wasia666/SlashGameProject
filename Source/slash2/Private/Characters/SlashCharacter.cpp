@@ -10,6 +10,8 @@
 #include "Animation/AnimMontage.h"
 #include "HUD/SlashHUD.h"
 #include "HUD/SlashOverlay.h"
+#include"Items/Souls.h"
+#include "Items/Treasure.h"
 
 ASlashCharacter::ASlashCharacter()
 {
@@ -109,7 +111,20 @@ void ASlashCharacter::SetOverlappingItem(AItems* Item)
 
 void ASlashCharacter::AddSouls(ASouls* Soul)
 {
-	
+	if (Attributes && SlashOverlay)
+	{
+        Attributes->AddSouls(Soul->GetSouls());//如果Souls实现了接口，则添加 Souls到PickupInterface这个接口，在从这个接口到SlashCharacter中，并且添加到AttributeComponent中，然后调用AttributeComponent里的AddSouls函数
+		SlashOverlay->SetSouls(Attributes->GetSouls());//设置HUD的Souls数量
+	}
+}
+
+void ASlashCharacter::AddGold(ATreasure* Treasure)
+{
+    if (Attributes && SlashOverlay)
+    {
+		Attributes->AddGold(Treasure->GetGold());//如果Treasure实现了接口，则添加 Gold到PickupInterface这个接口，在从这个接口到SlashCharacter中，并且添加到AttributeComponent中，然后调用AttributeComponent里的AddGold函数
+		SlashOverlay->SetGold(Attributes->GetGold());//设置HUD的Gold数量
+    }
 }
 
 void ASlashCharacter::BeginPlay()
@@ -305,8 +320,8 @@ void ASlashCharacter::InitializeSlashOverlay()
 			{
 				SlashOverlay->SetHealthBarPercent(Attributes->GetHealthPercent());//设置当前生命值
 				SlashOverlay->SetStaminaBarPercent(1.f);
-				SlashOverlay->SetGold(1);
-				SlashOverlay->SetSouls(1);
+				SlashOverlay->SetGold(0);//设置初始金币为0
+				SlashOverlay->SetSouls(0);//设置初始灵魂为0
 			}
 		}
 	}

@@ -32,6 +32,7 @@ Source/slash2/Private/Characters/SlashCharacter.cpp       text working-tree-enco
 Source/slash2/Private/Components/AttributeComponent.cpp   text working-tree-encoding=GBK
 Source/slash2/Private/Enemy/Enemy.cpp                     text working-tree-encoding=GBK
 Source/slash2/Private/HUD/HealthBarComponent.cpp          text working-tree-encoding=GBK
+Source/slash2/Private/HUD/SlashHUD.cpp                    text working-tree-encoding=GBK
 Source/slash2/Private/HUD/SlashOverlay.cpp                text working-tree-encoding=GBK
 Source/slash2/Private/Items/Items.cpp                     text working-tree-encoding=GBK
 Source/slash2/Private/Items/Souls.cpp                     text working-tree-encoding=GBK
