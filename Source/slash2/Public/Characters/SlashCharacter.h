@@ -42,11 +42,13 @@ protected:
 	void Turn(float Value);
     void LookUp(float Value);
 	void EKeyPressed();
+	void Dodge();
 
 	/*战斗*/
 	void EquipWeapon(AWeapon* Weapon);
 	virtual void Attack() override;
 	virtual void AttackEnd() override;//动画结束通知函数
+	virtual void DodgeEnd() override;//闪避动画结束通知函数
 	virtual bool CanAttack() override;//判断是否可以攻击
 	// 装备处理函数
 	void PlayEquipMontage(const FName& SectionName);//装备动画

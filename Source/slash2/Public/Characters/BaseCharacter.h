@@ -41,6 +41,7 @@ protected:
 	/* Montage */
 	void PlayHitReactMontage(const FName& SectionName);
 	virtual int32 PlayAttackMontage();
+	virtual void PlayDodgeMontage();
 	virtual void PlayDeathMontage(const FName SelectionName);
 	void StopAttackMontage();
 
@@ -58,6 +59,9 @@ protected:
 	virtual void AttackEnd();
 
 	UFUNCTION(BlueprintCallable)
+	virtual void DodgeEnd();
+
+	UFUNCTION(BlueprintCallable)
 	void SetWeaponCollisionEnabled(ECollisionEnabled::Type CollisionEnabled);//武器碰撞处理函数,在蓝图中调用函数
 	
 	UPROPERTY(VisibleAnywhere, Category = Weapon)
@@ -65,6 +69,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = Montages)
 	UAnimMontage* DeathMontage;//在蓝图中播放死亡动画蒙太奇
+
+	UPROPERTY(EditDefaultsOnly, Category = Montages)
+	UAnimMontage* DodgeMontage;
 
 	UPROPERTY(BlueprintReadOnly)
 	EDeathPose DeathPose;

@@ -20,6 +20,7 @@
 | `Space` | 跳跃 |
 | `E` | 装备 / 收起武器 |
 | `鼠标左键` | 攻击（武器已装备时） |
+| `Shift` | 闪避翻滚 |
 
 按键绑定见 `Config/DefaultInput.ini`。
 
@@ -119,6 +120,24 @@
   section 名不匹配时 `Montage_JumpToSection` 会**静默失败**，导致每次都从第一段开始播。
 - 死亡姿势序列位于 `Content/Blueprints/Characters/Animations/Death/`。
 
+### 闪避翻滚
+
+按 `Shift` 触发闪避：`ASlashCharacter::Dodge()` 先用 `IsUnoccupied()` 判定状态，
+再调用基类 `ABaseCharacter::PlayDodgeMontage()` 播放 `DodgeMontage` 的 `Default` 段，
+并把 `EActionState` 切成 `EAS_Dodge`——该状态下移动 / 跳跃 / 攻击 / 装备输入全部被拒。
+闪避收尾走动画通知 `DodgeEnd`：动画蓝图的 `AnimNotify_DodgeEnd` 事件调用
+`ASlashCharacter::DodgeEnd()`（`UFUNCTION(BlueprintCallable)`），把状态复位成 `EAS_Unoccupied`。
+
+- 蒙太奇 `AM_EchoDodge`：slot `DefaultSlot` + section `Default` + 名字型通知 `DodgeEnd`，
+  长度 2.033s（对应 61 帧 @30fps）。
+- 动画序列 `Dodge` / `Dodge_To_Idle` 位于 `Content/Blueprints/Characters/Animations/HitReact/`，
+  由迁移的 Echo 素材导入后**重定向到角色骨架**（`Content/AncientContent/.../Echo_Skeleton`）。
+- `DodgeEnd` 是「名字型」动画通知（`Notify` 为空，只有 `NotifyName`），运行时由
+  `UAnimInstance::TriggerSingleAnimNotify` 按 `AnimNotify_<名字>` 查找 AnimInstance 上的同名函数触发；
+  **该名字必须存在于角色骨架的通知名缓存里**（骨架编辑器 → Anim Notifies → Add Notify），
+  否则动画蓝图的事件图里搜不到 `AnimNotify_DodgeEnd`，`DodgeEnd()` 永远不会被调用、
+  角色会一直卡在 `EAS_Dodge`。
+
 ### 破碎与破坏
 
 `ABreakableActor` 使用 `UGeometryCollectionComponent`（Chaos Destruction）实现陶罐/瓮/花瓶的碎裂，
@@ -153,7 +172,8 @@ Source/slash2/
     Pawns/                      Bird Pawn
 Content/
   Blueprints/                   全部蓝图（角色与动画 / 敌人 / 拾取物 / HUD / GameMode）
-    Characters/Animations/      攻击 / 受击 / 装备 / 死亡蒙太奇，Death/ 存放死亡姿势序列
+    Characters/Animations/      攻击 / 受击 / 闪避 / 装备 / 死亡蒙太奇，
+                                Death/ 死亡姿势序列、HitReact/ 受击与闪避序列（含 Dodge / Dodge_To_Idle）
     Items/Pickups/              Treasures/ 战利品蓝图、Souls/ 灵魂蓝图
   Map/                          关卡：NewMap（World Partition）、TestMap
   __ExternalActors__/           关卡外部 Actor（World Partition 数据，NewMap 主体内容）
@@ -197,6 +217,8 @@ Assests/Mixamo/                 Mixamo 角色与动画的 FBX 源文件（含贴
   `.gitattributes` 配置了 `working-tree-encoding`，使这些文件在版本库中以 **UTF-8** 存储，
   因此 GitHub 网页端中文注释可正常显示，同时**本地工作区文件保持原编码不变**，
   Visual Studio / MSVC 编译行为不受影响。
+- **迁移素材**：`Content/Migrated/`（Echo 角色副本，含闪避动画的源数据，约 1.45 GB）同样未纳入仓库，
+  其中 `Dodge` / `Dodge_To_Idle` 序列已重定向到角色骨架，详见 [ASSETS_REQUIRED.md](ASSETS_REQUIRED.md)。
 - **二进制资源**：`.uasset` / `.umap` 等已在 `.gitattributes` 中标记为 `binary`，并关闭了行尾转换。
 
 ---

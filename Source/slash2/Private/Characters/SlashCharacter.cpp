@@ -67,10 +67,11 @@ void ASlashCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	PlayerInputComponent->BindAction(FName("Jump"), IE_Pressed, this, &ASlashCharacter::Jump);//绑定跳跃键(空格键)
 	PlayerInputComponent->BindAction(FName("Equip"), IE_Pressed, this, &ASlashCharacter::EKeyPressed);//绑定装备键(E键)
 	PlayerInputComponent->BindAction(FName("Attack"), IE_Pressed, this, &ASlashCharacter::Attack);//绑定攻击键(鼠标左键)
+	PlayerInputComponent->BindAction(FName("Dodge"), IE_Pressed, this, &ASlashCharacter::Dodge);//绑定闪避键(shift键)
 }
 
 void ASlashCharacter::Jump()
-{
+{ 
 	if (IsUnoccupied())
 	{
 		Super::Jump();//如果角色空闲，则执行跳跃
@@ -223,10 +224,23 @@ void ASlashCharacter::Attack()
 
 }
 
+void ASlashCharacter::Dodge()
+{
+	if (ActionState != EActionState::EAS_Unoccupied) return;
+	PlayDodgeMontage();//播放闪避蒙太奇
+    ActionState = EActionState::EAS_Dodge;
+}
+
 void ASlashCharacter::AttackEnd()
 {
 	ActionState = EActionState::EAS_Unoccupied;
 
+}
+
+void ASlashCharacter::DodgeEnd()
+{
+	Super::DodgeEnd();
+	ActionState = EActionState::EAS_Unoccupied;
 }
 
 bool ASlashCharacter::CanAttack()

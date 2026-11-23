@@ -115,6 +115,11 @@ int32 ABaseCharacter::PlayAttackMontage()
 	return PlayRandomMontageSection(AttackMontage, AttackMontageSections);//随机播放攻击蒙太奇
 }
 
+void ABaseCharacter::PlayDodgeMontage()
+{
+	PlayMontageSection(DodgeMontage, FName("Default"));
+}
+
 void ABaseCharacter::PlayDeathMontage(const FName SelectionName)
 {
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();//获取动画实例
@@ -278,6 +283,10 @@ void ABaseCharacter::DisableMeshCollision()
 }
 
 void ABaseCharacter::AttackEnd()
+{
+}
+
+void ABaseCharacter::DodgeEnd()
 {
 }
 
