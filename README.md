@@ -3,7 +3,7 @@
 一个基于 **Unreal Engine 5.0** 的第三人称 ARPG 动作游戏原型（C++ + 蓝图混合开发）。
 
 包含近战连击、装备/收刀、方向性受击反馈、四方向死亡动画、Chaos 破碎、战利品与灵魂拾取、
-敌人 AI 巡逻-追击-攻击状态机以及 HUD 血条等完整战斗循环。
+靠近显示 `E` 键的交互提示与治疗拾取物、敌人 AI 巡逻-追击-攻击状态机以及 HUD 血条等完整战斗循环。
 
 > ⚠️ **本仓库只包含项目自有的核心内容**。第三方素材库（AncientContent、Megascans 贴图、
 > 植被包等）体积达 30 GB 且受各自许可协议约束，未纳入版本管理。
@@ -18,7 +18,7 @@
 | `W` `A` `S` `D` | 移动 |
 | 鼠标 | 视角旋转 |
 | `Space` | 跳跃 |
-| `E` | 装备 / 收起武器 |
+| `E` | 靠近拾取物时交互拾取；否则装备 / 收起武器 |
 | `鼠标左键` | 攻击（武器已装备时） |
 | `Shift` | 闪避翻滚 |
 
@@ -50,6 +50,37 @@
 - `ATreasure` — 战利品：重叠时通过 `IPickupInterface::AddGold` 交付金币，播放拾取音效后销毁。
 - `ASouls` — 灵魂拾取物：重叠时通过 `IPickupInterface::AddSouls` 交付灵魂，播放拾取音效与
   Niagara 特效后销毁；敌人死亡时由 `AEnemy::SpawnSoul()` 按 `SoulClass` 在尸体处掉落。
+
+### 交互提示与治疗拾取物
+
+不做「碰到就吃」的自动拾取，而是靠近物品后在屏幕底部显示 `E` 键提示，按键才生效。
+整条链路只走接口：拾取物不认识角色类，角色也不认识拾取物类。
+
+- `IInteractableInterface` — 交互接口：`GetInteractionPrompt(AActor* Interactor)` 返回提示文字
+  （返回空文本即「当前不可交互」，UI 不显示该物品）、`Interact()` 执行交互并**返回是否成功**、
+  `OnFocused` / `OnUnfocused` 供需要高亮的物体预留。
+- `IPickupReceiverInterface` — 拾取接收者接口（由 `ASlashCharacter` 实现）：
+  `CanReceivePickup()` 判断能否接收（满血、已死亡时拒绝），`ReceivePickup()` 真正生效并返回是否消费。
+- `FPickupPayload` / `EPickupType` — 数据层（`Health` / `Stamina` / `Gold` / `Souls`）：
+  拾取物只描述「给什么、给多少」，效果由接收方按类型自行决定。
+- `UInteractionComponent` — 挂在玩家角色上的交互组件（`ScanInterval` 0.1s）：
+  用 `GetOverlappingActors` 复用「物品 `Sphere` ↔ 角色」的现成重叠，
+  过滤实现了 `IInteractableInterface` 且提示非空的目标，取最近且在 `MaxInteractionDistance` 内的一个，
+  交给提示控件显示；`TryInteract()` 只在交互成功时返回 `true`。
+- `UInteractionPromptWidget` — 纯 Slate 绘制的提示：白底方框 + 黑色粗体 `E` + 动作文字，
+  锚定屏幕底部居中（屏幕空间 UI，尺寸恒定、天然正对镜头）；提示文字为空时整个控件 `Collapsed`，
+  因此「什么时候显示」完全由物品自己决定。
+- `AHealthPickup` — 治疗拾取物（`AItems` 子类，蓝图 `Content/Blueprints/Items/Pickups/BP_HealthPickup`）：
+  `HealAmount` 默认 30、缓慢自转的平面图标；`Interact()` 里 `Cast<IPickupReceiverInterface>` 成功后才
+  播特效/音效并 `Destroy()`，`bConsumed` 保证不会重复生效。
+  它**重写了 `OnSphereOverlap` / `OnSphereEndOverlap` 且不调用基类**，
+  所以不会走 `AItems` 的自动拾取、也不会污染 `OverlappingItem`（`E` 键仍可正常拔刀）。
+- 角色侧：`ASlashCharacter::ReceivePickup` 的 `Health` 分支调用 `UAttributeComponent::AddHealth()`
+  并 `SetHUDHealth()` 立即刷新血条；`CanReceivePickup` 满血时返回 `false`，物品据此不显示提示、不被消耗。
+- `ASlashCharacter::EKeyPressed()` 只在最前面多了一个分支：
+  `if (IsUnoccupied() && InteractionComponent && InteractionComponent->TryInteract()) return;`
+  ——交互成功才吃掉这次按键，否则照旧走装备 / 收刀逻辑。
+- 散布：把 `BP_HealthPickup` 直接摆到关卡里即可；测试地图 `TestMap` 在出生点周围放了 5 个。
 
 ### 敌人 AI
 
@@ -163,18 +194,19 @@ Config/                         引擎 / 输入 / 游戏模式配置
 Source/slash2/
   Public/ · Private/
     Characters/                 角色、动画实例、死亡姿势与状态枚举
-    Components/                 属性组件
-    Interfaces/                 命中接口与拾取接口
-    Items/                      拾取物、武器、战利品、灵魂
+    Components/                 属性组件、交互组件
+    Interfaces/                 命中、拾取、交互与拾取接收者接口
+    Items/                      拾取物、武器、战利品、灵魂、治疗拾取物
     Enemy/                      敌人 AI
     Breakable/                  Chaos 破碎物
-    HUD/                        ASlashHUD、血条与 HUD 控件
+    HUD/                        ASlashHUD、血条、HUD 控件与交互提示控件
     Pawns/                      Bird Pawn
 Content/
   Blueprints/                   全部蓝图（角色与动画 / 敌人 / 拾取物 / HUD / GameMode）
     Characters/Animations/      攻击 / 受击 / 闪避 / 装备 / 死亡蒙太奇，
                                 Death/ 死亡姿势序列、HitReact/ 受击与闪避序列（含 Dodge / Dodge_To_Idle）
-    Items/Pickups/              Treasures/ 战利品蓝图、Souls/ 灵魂蓝图
+    Items/Pickups/              Treasures/ 战利品蓝图、Souls/ 灵魂蓝图、
+                                BP_HealthPickup 治疗拾取物蓝图
   Map/                          关卡：NewMap（World Partition）、TestMap
   __ExternalActors__/           关卡外部 Actor（World Partition 数据，NewMap 主体内容）
   Assets/                       音效、UI 贴图、中文字体
@@ -217,6 +249,9 @@ Assests/Mixamo/                 Mixamo 角色与动画的 FBX 源文件（含贴
   `.gitattributes` 配置了 `working-tree-encoding`，使这些文件在版本库中以 **UTF-8** 存储，
   因此 GitHub 网页端中文注释可正常显示，同时**本地工作区文件保持原编码不变**，
   Visual Studio / MSVC 编译行为不受影响。
+- **新增源码编码**：交互 / 拾取系统的新文件（`Interfaces/` 下的 `PickupTypes.h`、`PickupReceiverInterface.h`、
+  `InteractableInterface.h`，以及 `InteractionComponent`、`InteractionPromptWidget`、`HealthPickup`）
+  为 **UTF-8（带 BOM）**，MSVC 会按 BOM 自动识别；与上面的 GBK 文件共存不影响编译。
 - **迁移素材**：`Content/Migrated/`（Echo 角色副本，含闪避动画的源数据，约 1.45 GB）同样未纳入仓库，
   其中 `Dodge` / `Dodge_To_Idle` 序列已重定向到角色骨架，详见 [ASSETS_REQUIRED.md](ASSETS_REQUIRED.md)。
 - **二进制资源**：`.uasset` / `.umap` 等已在 `.gitattributes` 中标记为 `binary`，并关闭了行尾转换。
