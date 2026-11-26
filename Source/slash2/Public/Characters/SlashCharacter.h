@@ -44,6 +44,10 @@ protected:
 	void EKeyPressed();
 	void Dodge();
 
+
+
+	bool IsOccupied();
+
 	/*战斗*/
 	void EquipWeapon(AWeapon* Weapon);
 	virtual void Attack() override;
@@ -53,6 +57,7 @@ protected:
 	// 装备处理函数
 	void PlayEquipMontage(const FName& SectionName);//装备动画
 	virtual void Die(const FVector& ImpactPoint, AActor* Hitter) override;
+	bool HasEnoughStamina();//判断是否可以消耗耐力
 	bool CanDisarm();//判断是否可以卸下
 	bool CanArm();//判断是否可以装备
     void Arm();

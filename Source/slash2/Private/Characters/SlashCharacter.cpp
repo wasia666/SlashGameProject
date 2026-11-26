@@ -52,6 +52,11 @@ ASlashCharacter::ASlashCharacter()
 void ASlashCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	if (Attributes && SlashOverlay)
+	{
+		Attributes->RegenStamina(DeltaTime);//角色的耐力实时更新回复
+        SlashOverlay->SetStaminaBarPercent(Attributes->GetStaminaPercent());//实时更新回复HUD的血量百分比
+	}
 
 }
 
@@ -226,9 +231,20 @@ void ASlashCharacter::Attack()
 
 void ASlashCharacter::Dodge()
 {
-	if (ActionState != EActionState::EAS_Unoccupied) return;
+	if (IsOccupied() || !HasEnoughStamina()) return;
 	PlayDodgeMontage();//播放闪避蒙太奇
     ActionState = EActionState::EAS_Dodge;
+	if (Attributes && SlashOverlay)
+	{
+		Attributes->UseStamina(Attributes->GetDodgeCost());//消耗闪避所需的体力
+        SlashOverlay->SetStaminaBarPercent(Attributes->GetStaminaPercent());//更新HUD的体力百分比
+	}
+}
+
+
+bool ASlashCharacter::IsOccupied()
+{
+	return ActionState != EActionState::EAS_Unoccupied;
 }
 
 void ASlashCharacter::AttackEnd()
@@ -266,6 +282,12 @@ void ASlashCharacter::Die(const FVector& ImpactPoint, AActor* Hitter)
 	DisableMeshCollision();
 	GetCharacterMovement()->StopMovementImmediately();// 修复:死亡瞬间清掉残余速度,不再滑步
 }
+
+bool ASlashCharacter::HasEnoughStamina()
+{
+	return Attributes && Attributes->GetStamina() > Attributes->GetDodgeCost();
+}
+
 
 bool ASlashCharacter::CanDisarm()
 {

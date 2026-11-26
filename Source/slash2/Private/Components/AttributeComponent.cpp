@@ -3,7 +3,7 @@
 
 UAttributeComponent::UAttributeComponent()
 {
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 
 	
 }
@@ -22,9 +22,19 @@ void UAttributeComponent::ReceiveDamage(float Damage)
 
 }
 
+void UAttributeComponent::UseStamina(float StaminaCost)
+{
+    Stamina = FMath::Clamp(Stamina - StaminaCost, 0.f, MaxStamina);//如果传入一个值，然后将其限制在最小值0到最大值MaxStamina之间
+}
+
 float UAttributeComponent::GetHealthPercent()
 {
     return Health / MaxHealth;//返回当前生命值百分比
+}
+
+float UAttributeComponent::GetStaminaPercent()
+{
+	return Stamina / MaxStamina;//返回当前耐力百分比
 }
 
 bool UAttributeComponent::IsAlive()
@@ -47,5 +57,11 @@ void UAttributeComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	
+}
+
+void UAttributeComponent::RegenStamina(float DeltaTime)
+{
+	Stamina = FMath::Clamp(Stamina + DeltaTime * StaminaRegenRate, 0.f, MaxStamina);//耐力缓慢恢复，但它永远不会超出范围。
 }
 
