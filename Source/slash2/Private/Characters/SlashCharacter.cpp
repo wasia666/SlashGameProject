@@ -138,6 +138,7 @@ void ASlashCharacter::AddGold(ATreasure* Treasure)
     }
 }
 
+/** 判断角色此刻能否接收：无属性组件 / 已死亡 / 满血 返回 false（满血时保留物品，避免浪费）*/
 bool ASlashCharacter::CanReceivePickup(const FPickupPayload& Payload) const
 {
 	if (!Attributes || !Attributes->IsAlive())
@@ -154,6 +155,7 @@ bool ASlashCharacter::CanReceivePickup(const FPickupPayload& Payload) const
 	}
 }
 
+/** 执行拾取效果：先复核 CanReceivePickup，再按类型加血并同步刷新 HUD */
 bool ASlashCharacter::ReceivePickup(const FPickupPayload& Payload)
 {
 	if (!CanReceivePickup(Payload))
@@ -172,6 +174,28 @@ bool ASlashCharacter::ReceivePickup(const FPickupPayload& Payload)
 	}
 }
 
+
+/** 能否接收武器：角色活着、武器还没被装备 */
+bool ASlashCharacter::CanReceiveWeapon(AWeapon* Weapon) const
+{
+	if (!Weapon || !Attributes || !Attributes->IsAlive())
+	{
+		return false;
+	}
+	return !Weapon->IsEquipped();
+}
+
+/** 接收武器：直接调用原有 EquipWeapon，不复制任何装备逻辑 */
+bool ASlashCharacter::ReceiveWeapon(AWeapon* Weapon)
+{
+	if (!CanReceiveWeapon(Weapon))
+	{
+		return false;
+	}
+
+	EquipWeapon(Weapon);//挂到右手插槽、切换角色状态、清空 OverlappingItem
+	return true;
+}
 
 void ASlashCharacter::BeginPlay()
 {
@@ -231,7 +255,7 @@ void ASlashCharacter::LookUp(float Value)
 void ASlashCharacter::EKeyPressed()
 {
 	// 附近有可交互物时交互优先，这次 E 键不再进入装备/收刀逻辑
-	if (IsUnoccupied() && InteractionComponent && InteractionComponent->TryInteract())
+	if (InteractionComponent && InteractionComponent->TryInteract())
 	{
 		return;
 	}

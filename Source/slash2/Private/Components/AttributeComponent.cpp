@@ -27,6 +27,7 @@ void UAttributeComponent::UseStamina(float StaminaCost)
     Stamina = FMath::Clamp(Stamina - StaminaCost, 0.f, MaxStamina);//如果传入一个值，然后将其限制在最小值0到最大值MaxStamina之间
 }
 
+/** 恢复生命值：先挡掉非正数，再加并夹在 [0, MaxHealth] 内，溢出部分自动丢弃 */
 void UAttributeComponent::AddHealth(float Amount)
 {
 	if (Amount <= 0.f)

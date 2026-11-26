@@ -7,6 +7,8 @@
 #include "Components/SphereComponent.h"
 #include "Components/BoxComponent.h"
 #include "Interfaces/HitInterface.h"
+#include "Interfaces/PickupReceiverInterface.h"
+#include "Interfaces/PickupTypes.h"
 #include "NiagaraComponent.h"
 
 AWeapon::AWeapon()
@@ -23,6 +25,10 @@ AWeapon::AWeapon()
 
 	BoxTraceEnd = CreateDefaultSubobject<USceneComponent>(TEXT("Box Trace End"));//创建终点
     BoxTraceEnd->SetupAttachment(GetRootComponent());//添加到武器网格体
+
+	// 交互提示的默认文案，具体名字在蓝图里改
+	PickupDisplayName = FText::FromString(TEXT("\u6b66\u5668"));//\u6b66\u5668 = 武器（本文件是 GBK，中文字面量必须用 UCN 转义，否则运行时是乱码）
+	UnavailablePromptText = FText::FromString(TEXT("\u65e0\u6cd5\u88c5\u5907"));//\u65e0\u6cd5\u88c5\u5907 = 无法装备
 }
 
 void AWeapon::BeginPlay()
@@ -174,4 +180,51 @@ void AWeapon::BoxTrace(FHitResult& BoxHit)
 		true//绘制追踪
 	);
 	IgnoreActors.AddUnique(BoxHit.GetActor());//添加命中的actor,如果已经添加过，则不会重复添加两次，不会得到指向同一对象的指针
+}
+/** 提示文案：已装备 / 交互者不收时返回空，否则给"拾取 武器名"或不可用说明 */
+FText AWeapon::GetInteractionPrompt(AActor* Interactor) const
+{
+	if (IsEquipped() || !IsValid(Interactor) || !Cast<IPickupReceiverInterface>(Interactor))
+	{
+		return FText::GetEmpty();//没有可显示内容，交互组件据此不选中这把武器
+	}
+
+	// 可用："拾取 铁剑"；不可用：只显示"无法装备"（交互组件会隐藏白底键帽）
+	return CanBeEquippedBy(Interactor)
+		? MakePickupPrompt(PickupDisplayName)
+		: UnavailablePromptText;
+}
+
+/** 能否按 E：没被装备 + 交互者有效 + 接收者当前愿意拿 */
+bool AWeapon::CanInteract(AActor* Interactor) const
+{
+	return !IsEquipped() && IsValid(Interactor) && CanBeEquippedBy(Interactor);
+}
+
+/** 用探针询问接收者：只问不取，不改任何状态 */
+bool AWeapon::CanBeEquippedBy(AActor* Interactor) const
+{
+	const IPickupReceiverInterface* Receiver = Cast<IPickupReceiverInterface>(Interactor);
+	if (!Receiver)
+	{
+		return false;
+	}
+	return Receiver->CanReceiveWeapon(const_cast<AWeapon*>(this));
+}
+
+/** 真正拾取武器：把 Actor 交给接收者处理（本项目中 = 装备到手上）*/
+bool AWeapon::Interact(AActor* Interactor)
+{
+	if (!CanInteract(Interactor))
+	{
+		return false;
+	}
+
+	IPickupReceiverInterface* Receiver = Cast<IPickupReceiverInterface>(Interactor);
+	if (!Receiver)
+	{
+		return false;
+	}
+
+	return Receiver->ReceiveWeapon(this);
 }

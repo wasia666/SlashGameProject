@@ -35,8 +35,14 @@ public:
 	virtual void SetOverlappingItem(AItems* Item) override;
 	virtual void AddSouls(ASouls* Soul) override;
 	virtual void AddGold(ATreasure* Treasure) override;
+	/** 能否接收这次拾取：角色已死 / 无属性 / 满血 都返回 false，拾取物据此不消耗自己 */
 	virtual bool CanReceivePickup(const FPickupPayload& Payload) const override;
+	/** 执行拾取：按载荷类型修改属性并刷新 HUD，返回 true 表示这次拾取已被消费 */
 	virtual bool ReceivePickup(const FPickupPayload& Payload) override;
+	/** 能否把武器交给角色：活着、武器未被装备 */
+	virtual bool CanReceiveWeapon(AWeapon* Weapon) const override;
+	/** 接收武器：复用原有装备流程 EquipWeapon，装备成功后球体碰撞关闭、提示自动消失 */
+	virtual bool ReceiveWeapon(AWeapon* Weapon) override;
 protected:
 	virtual void BeginPlay() override;
 
