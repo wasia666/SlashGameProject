@@ -57,29 +57,37 @@
 整条链路只走接口：拾取物不认识角色类，角色也不认识拾取物类。
 
 - `IInteractableInterface` — 交互接口：`GetInteractionPrompt(AActor* Interactor)` 返回提示文字
-  （返回空文本即「当前不可交互」，UI 不显示该物品）、`Interact()` 执行交互并**返回是否成功**、
-  `OnFocused` / `OnUnfocused` 供需要高亮的物体预留。
+  （返回空文本即「不显示该物品」）、`CanInteract()` 返回**此刻是否真能交互**、
+  `Interact()` 执行交互并**返回是否成功**、`OnFocused` / `OnUnfocused` 供需要高亮的物体预留。
 - `IPickupReceiverInterface` — 拾取接收者接口（由 `ASlashCharacter` 实现）：
   `CanReceivePickup()` 判断能否接收（满血、已死亡时拒绝），`ReceivePickup()` 真正生效并返回是否消费。
+  添加新拾取类型时，只需在 `EPickupType` 加枚举值、在角色 `ReceivePickup` 里加一个分支，拾取物侧零改动。
 - `FPickupPayload` / `EPickupType` — 数据层（`Health` / `Stamina` / `Gold` / `Souls`）：
   拾取物只描述「给什么、给多少」，效果由接收方按类型自行决定。
 - `UInteractionComponent` — 挂在玩家角色上的交互组件（`ScanInterval` 0.1s）：
   用 `GetOverlappingActors` 复用「物品 `Sphere` ↔ 角色」的现成重叠，
   过滤实现了 `IInteractableInterface` 且提示非空的目标，取最近且在 `MaxInteractionDistance` 内的一个，
-  交给提示控件显示；`TryInteract()` 只在交互成功时返回 `true`。
+  交给提示控件显示。`TryInteract()` 的返回值语义是「这次按键归交互系统」：
+  目标当前不可用（如满血）时也返回 `true` 把键吃掉，只有完全没目标时才返回 `false` 让按键回落。
 - `UInteractionPromptWidget` — 纯 Slate 绘制的提示：白底方框 + 黑色粗体 `E` + 动作文字，
-  锚定屏幕底部居中（屏幕空间 UI，尺寸恒定、天然正对镜头）；提示文字为空时整个控件 `Collapsed`，
-  因此「什么时候显示」完全由物品自己决定。
+  锚定屏幕底部居中（屏幕空间 UI，尺寸恒定、天然正对镜头）；提示文字为空时整个控件 `Collapsed`。
+  `ShowPrompt()` 收到空键文本时只折叠白底键帽、保留说明文字——于是「满血」能显示 `生命值已满`
+  而不显示 `E`，玩家一眼看出是「现在不能拿」而不是「没有这个物品」。
 - `AHealthPickup` — 治疗拾取物（`AItems` 子类，蓝图 `Content/Blueprints/Items/Pickups/BP_HealthPickup`）：
   `HealAmount` 默认 30、缓慢自转的平面图标；`Interact()` 里 `Cast<IPickupReceiverInterface>` 成功后才
   播特效/音效并 `Destroy()`，`bConsumed` 保证不会重复生效。
+  提示有两态：可拾取显示 `拾取 生命药水`，不可拾取（满血）显示 `UnavailablePromptText`（默认 `生命值已满`）；
+  判定统一走 `CanBePickedUpBy()` —— 用探测载荷问接收者 `CanReceivePickup()`，拾取物自己不判断血量。
+  `Sphere` 上设了 `SetAbsolute(false, false, true)`：蓝图把 `ItemMesh` 缩到 0.45，
+  若判定球跟随缩放，180 的半径在世界里只剩 81cm，解除缩放后才真正是 2m 左右。
   它**重写了 `OnSphereOverlap` / `OnSphereEndOverlap` 且不调用基类**，
   所以不会走 `AItems` 的自动拾取、也不会污染 `OverlappingItem`（`E` 键仍可正常拔刀）。
 - 角色侧：`ASlashCharacter::ReceivePickup` 的 `Health` 分支调用 `UAttributeComponent::AddHealth()`
-  并 `SetHUDHealth()` 立即刷新血条；`CanReceivePickup` 满血时返回 `false`，物品据此不显示提示、不被消耗。
+  并 `SetHUDHealth()` 立即刷新血条（`AddHealth` 会按 `MaxHealth` 截断，不会溢出）；
+  `CanReceivePickup` 满血时返回 `false`：物品仍显示说明文字，但键帽隐藏、按键不消耗、物品不消失。
 - `ASlashCharacter::EKeyPressed()` 只在最前面多了一个分支：
   `if (IsUnoccupied() && InteractionComponent && InteractionComponent->TryInteract()) return;`
-  ——交互成功才吃掉这次按键，否则照旧走装备 / 收刀逻辑。
+  ——按键被交互系统接管时直接返回，没目标时照旧走装备 / 收刀逻辑。
 - 散布：把 `BP_HealthPickup` 直接摆到关卡里即可；测试地图 `TestMap` 在出生点周围放了 5 个。
 
 ### 敌人 AI
