@@ -1,4 +1,4 @@
-﻿// 交互组件：挂在玩家角色上，周期性扫描与自身重叠的可交互物，
+// 交互组件：挂在玩家角色上，周期性扫描与自身重叠的可交互物，
 // 选最近的一个显示提示，并把交互键转发给目标（通过 IInteractableInterface）。
 // 组件不认识任何具体物品类，物品也不认识本组件。
 
@@ -58,4 +58,5 @@ private:
 	TArray<AActor*> OverlapBuffer;
 	FTimerHandle ScanTimerHandle;
 	FText LastPromptText;
+	bool bLastPromptUsable = false;
 };

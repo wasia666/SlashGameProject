@@ -121,11 +121,13 @@ void UInteractionComponent::UpdatePrompt()
 	AActor* Target = CurrentTarget.Get();
 
 	FText ActionText = FText::GetEmpty();
+	bool bUsable = false;
 	if (IsValid(Target) && Owner)
 	{
 		if (const IInteractableInterface* Interactable = Cast<IInteractableInterface>(Target))
 		{
 			ActionText = Interactable->GetInteractionPrompt(Owner);
+			bUsable = Interactable->CanInteract(Owner);
 		}
 	}
 
@@ -136,11 +138,12 @@ void UInteractionComponent::UpdatePrompt()
 			PromptWidget->HidePrompt();
 		}
 		LastPromptText = FText::GetEmpty();
+		bLastPromptUsable = false;
 		return;
 	}
 
-	// 文本没变就不重设，避免每帧无意义地刷新 Slate
-	if (PromptWidget && ActionText.EqualTo(LastPromptText))
+	// 文本和可用状态都没变就不重设，避免每帧无意义地刷新 Slate
+	if (PromptWidget && bUsable == bLastPromptUsable && ActionText.EqualTo(LastPromptText))
 	{
 		return;
 	}
@@ -148,8 +151,10 @@ void UInteractionComponent::UpdatePrompt()
 	EnsurePromptWidget();
 	if (PromptWidget)
 	{
-		PromptWidget->ShowPrompt(InteractKeyText, ActionText);
+		// 不可用时传空键文本：UI 据此隐藏白底键帽，只留说明文字
+		PromptWidget->ShowPrompt(bUsable ? InteractKeyText : FText::GetEmpty(), ActionText);
 		LastPromptText = ActionText;
+		bLastPromptUsable = bUsable;
 	}
 }
 
@@ -200,13 +205,19 @@ bool UInteractionComponent::TryInteract()
 		return false;
 	}
 
-	// 目标当前不可用（如刚被别人拾取）时不吃掉按键，让 E 键回落到原有逻辑
+	// 目标已消失/失效（如刚被别人拾取）时不吃掉按键，让 E 键回落到原有逻辑
 	if (Interactable->GetInteractionPrompt(Owner).IsEmpty())
 	{
 		return false;
 	}
 
-	// 交互失败（如刚好满血）同样不吃按键
+	// 目标还在但当前不可用（如满血）：提示文字已经说明了原因，
+	// 这次按键直接吃掉，避免顺势触发装备/收刀
+	if (!Interactable->CanInteract(Owner))
+	{
+		return true;
+	}
+
 	const bool bInteracted = Interactable->Interact(Owner);
 
 	// 交互后立即刷新，避免提示多显示一次扫描间隔

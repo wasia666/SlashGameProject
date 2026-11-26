@@ -29,7 +29,7 @@ TSharedRef<SWidget> UInteractionPromptWidget::RebuildWidget()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
 			[
-				SNew(SBox)
+				SAssignNew(KeyBoxWidget, SBox)
 				.WidthOverride(46.f)
 				.HeightOverride(46.f)
 				[
@@ -62,9 +62,15 @@ TSharedRef<SWidget> UInteractionPromptWidget::RebuildWidget()
 
 void UInteractionPromptWidget::ShowPrompt(const FText& KeyText, const FText& ActionText)
 {
-	if (KeyLabel.IsValid())
+	// 空键文本 = 当前不可交互（如满血）：隐藏白底键帽，只显示说明文字
+	const bool bShowKey = !KeyText.IsEmpty();
+	if (KeyBoxWidget.IsValid())
 	{
-		KeyLabel->SetText(KeyText.IsEmpty() ? FText::FromString(TEXT("E")) : KeyText);
+		KeyBoxWidget->SetVisibility(bShowKey ? EVisibility::Visible : EVisibility::Collapsed);
+	}
+	if (bShowKey && KeyLabel.IsValid())
+	{
+		KeyLabel->SetText(KeyText);
 	}
 	if (ActionLabel.IsValid())
 	{

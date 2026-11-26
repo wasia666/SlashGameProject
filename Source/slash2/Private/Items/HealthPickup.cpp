@@ -17,9 +17,14 @@ AHealthPickup::AHealthPickup()
 		Sphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		Sphere->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
 		Sphere->SetGenerateOverlapEvents(true);
+
+		// 蓝图把 ItemMesh 缩到 0.45，若球体跟随缩放，180 的半径只剩 81cm；
+		// 让本组件的缩放独立于父级，判定范围才等于配置值
+		Sphere->SetAbsolute(false, false, true);
 	}
 
 	PromptText = FText::FromString(TEXT("拾取 生命药水"));
+	UnavailablePromptText = FText::FromString(TEXT("生命值已满"));
 }
 
 void AHealthPickup::OnSphereOverlap(UPrimitiveComponent* /*OverlappedComponent*/, AActor* /*OtherActor*/, UPrimitiveComponent* /*OtherComp*/, int32 /*OtherBodyIndex*/, bool /*bFromSweep*/, const FHitResult& /*SweepResult*/)
@@ -34,15 +39,27 @@ void AHealthPickup::OnSphereEndOverlap(UPrimitiveComponent* /*OverlappedComponen
 
 FText AHealthPickup::GetInteractionPrompt(AActor* Interactor) const
 {
-	if (bConsumed || !IsValid(Interactor))
+	if (bConsumed || !IsValid(Interactor) || !Cast<IPickupReceiverInterface>(Interactor))
 	{
 		return FText::GetEmpty();
 	}
 
+	// 可用：显示"E 拾取 生命药水"；满血：只显示"生命值已满"
+	// （交互组件看到 CanInteract()==false 会隐藏白底键帽，所以玩家能看出为什么按不动）
+	return CanBePickedUpBy(Interactor) ? PromptText : UnavailablePromptText;
+}
+
+bool AHealthPickup::CanInteract(AActor* Interactor) const
+{
+	return !bConsumed && IsValid(Interactor) && CanBePickedUpBy(Interactor);
+}
+
+bool AHealthPickup::CanBePickedUpBy(AActor* Interactor) const
+{
 	const IPickupReceiverInterface* Receiver = Cast<IPickupReceiverInterface>(Interactor);
 	if (!Receiver)
 	{
-		return FText::GetEmpty();
+		return false;
 	}
 
 	FPickupPayload Probe;
@@ -50,8 +67,7 @@ FText AHealthPickup::GetInteractionPrompt(AActor* Interactor) const
 	Probe.Amount = HealAmount;
 	Probe.SourceActor = const_cast<AHealthPickup*>(this);
 
-	// 满血等不可用状态直接返回空文本，交互组件据此不显示提示、也不消耗按键
-	return Receiver->CanReceivePickup(Probe) ? PromptText : FText::GetEmpty();
+	return Receiver->CanReceivePickup(Probe);
 }
 
 bool AHealthPickup::Interact(AActor* Interactor)

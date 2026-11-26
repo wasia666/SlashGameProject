@@ -18,6 +18,7 @@ public:
 
 	//~ Begin IInteractableInterface
 	virtual FText GetInteractionPrompt(AActor* Interactor) const override;
+	virtual bool CanInteract(AActor* Interactor) const override;
 	virtual bool Interact(AActor* Interactor) override;
 	//~ End IInteractableInterface
 
@@ -34,7 +35,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pickup")
 	FText PromptText;
 
+	/** 当前不可拾取（如满血）时显示的说明文字：不显示按键，只解释为什么按不动 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pickup")
+	FText UnavailablePromptText;
+
 private:
+	/** 用探测载荷询问接收者当前能否拾取（满血返回 false）*/
+	bool CanBePickedUpBy(AActor* Interactor) const;
+
 	/** 让平面图标朝向各个方向，避免从侧面看只剩一条线 */
 	UPROPERTY(VisibleAnywhere, Category = "Pickup")
 	class URotatingMovementComponent* RotateComponent;

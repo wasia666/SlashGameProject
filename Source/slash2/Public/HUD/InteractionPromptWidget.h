@@ -25,6 +25,8 @@ protected:
 	virtual TSharedRef<SWidget> RebuildWidget() override;
 
 private:
+	/** 白底键帽容器：不可交互时整体折叠，只留说明文字 */
+	TSharedPtr<SWidget> KeyBoxWidget;
 	TSharedPtr<STextBlock> KeyLabel;
 	TSharedPtr<STextBlock> ActionLabel;
 };
