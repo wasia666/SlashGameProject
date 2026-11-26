@@ -9,6 +9,7 @@
 
 class USoundBase;
 class UBoxComponent;
+class IPickupReceiverInterface;   // 只前置声明：头文件里只用指针，完整定义在 cpp
 /**
  * 
  */
@@ -41,7 +42,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pickup")
 	FText UnavailablePromptText;
 
-	/** 是否已经被装备（装备后球体碰撞会被关掉，提示也随之消失）*/
+	/** 是否已经被装备（装备后球体碰撞会被关掉，提示也随之消失） */
 	FORCEINLINE bool IsEquipped() const { return ItemState == EItemState::EIS_Equipped; }
 
 
@@ -58,6 +59,9 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent)
 	void CreateFields(const FVector& FieldLocation);//创建Fields,从cpp文件调用函数，传入位置，调用BlueprintImplementableEvent给蓝图实现函数
 private:
+
+	/** 取交互者身上的接收者接口：提示、可用性、交互三处共用，避免重复 Cast */
+	const IPickupReceiverInterface* GetPickupReceiver(AActor* Interactor) const;
 
 	/** 构造一次探测请求问接收者"你现在能拿这把武器吗"，不改变任何状态 */
 	bool CanBeEquippedBy(AActor* Interactor) const;

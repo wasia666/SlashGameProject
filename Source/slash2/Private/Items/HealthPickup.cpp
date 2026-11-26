@@ -7,7 +7,7 @@
 /** 构造函数：配置交互球体、图标自转和两条提示文案 */
 AHealthPickup::AHealthPickup()
 {
-	// 平面图标缓慢自转：任何角度靠近都能看到它
+	// 平面图标缓慢自转：任何角度靠近都能看清它
 	RotateComponent = CreateDefaultSubobject<URotatingMovementComponent>(TEXT("RotateComponent"));
 	RotateComponent->RotationRate = FRotator(0.f, 60.f, 0.f);
 
@@ -15,7 +15,7 @@ AHealthPickup::AHealthPickup()
 	if (Sphere)
 	{
 		Sphere->SetSphereRadius(180.f);                              // 判定半径约 1.8m
-		Sphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);   // 只查询、不参与物理
+		Sphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);   // 只做查询，不参与物理
 		Sphere->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
 		Sphere->SetGenerateOverlapEvents(true);                      // 必须开，否则不产生重叠事件
 
@@ -28,10 +28,10 @@ AHealthPickup::AHealthPickup()
 	UnavailablePromptText = FText::FromString(TEXT("生命值已满"));
 }
 
-/** 进入范围：故意什么都不做（治疗物要按键才生效，不走基类的"碰到即拾取"）*/
+/** 进入范围：故意什么都不做（治疗物要按键才生效，不走基类的"碰到即拾取"） */
 void AHealthPickup::OnSphereOverlap(UPrimitiveComponent* /*OverlappedComponent*/, AActor* /*OtherActor*/, UPrimitiveComponent* /*OtherComp*/, int32 /*OtherBodyIndex*/, bool /*bFromSweep*/, const FHitResult& /*SweepResult*/)
 {
-	// 故意不调用基类：治疗物不走"碰到即拾取"，也不写入 OverlappingItem（避免 E 键走拔刀分支）
+	// 故意不调用基类：治疗物不走"碰到即拾取"，也不写入 OverlappingItem（否则 E 键会走拔刀分支）
 }
 
 /** 离开范围：同样不调用基类，保持与其他物品的重叠状态互不干扰 */
@@ -40,49 +40,54 @@ void AHealthPickup::OnSphereEndOverlap(UPrimitiveComponent* /*OverlappedComponen
 	// 同上：不调用基类，避免把别的物品的 OverlappingItem 清空
 }
 
-/** 提示文案：没被消耗、交互者能接收时才给文字；满血给"不可用"说明 */
+/** 提示文案：可用显示"拾取 <名字>"；满血显示"生命值已满"（组件会隐藏白底键帽） */
 FText AHealthPickup::GetInteractionPrompt(AActor* Interactor) const
 {
-	if (bConsumed || !IsValid(Interactor) || !Cast<IPickupReceiverInterface>(Interactor))
+	// 已消耗或对方不是接收者：没有可显示内容，交互组件据此跳过本物品
+	if (bConsumed || !GetPickupReceiver(Interactor))
 	{
 		return FText::GetEmpty();
 	}
 
-	// 可用：显示"E 拾取 生命药水"；满血：只显示"生命值已满"
-	// （交互组件看到 CanInteract()==false 会隐藏白底键帽，所以玩家能看出为什么按不动）
 	return CanBePickedUpBy(Interactor) ? MakePickupPrompt(PickupDisplayName) : UnavailablePromptText;
 }
 
-/** 能否交互：没消耗、交互者有效、且接收者当前愿意收 */
+/** 此刻能否真的拾取：没被消耗、且对方愿意收（满血为 false） */
 bool AHealthPickup::CanInteract(AActor* Interactor) const
 {
-	return !bConsumed && IsValid(Interactor) && CanBePickedUpBy(Interactor);
+	return !bConsumed && CanBePickedUpBy(Interactor);
 }
 
-/** 交互优先级：药水（100）永远高于武器（默认 0），缺血时按键优先回血 */
+/** 交互优先级：药水(100) 始终高于武器(默认 0)，缺血时按 E 一定先回血 */
 int32 AHealthPickup::GetInteractionPriority(AActor* /*Interactor*/) const
 {
 	return 100;
 }
 
-/** 用一次探测请求问接收者"你现在能收这个药水吗"，不改动任何状态 */
-bool AHealthPickup::CanBePickedUpBy(AActor* Interactor) const
+/** 取交互者身上的接收者接口：无效或没实现接口都返回 nullptr */
+const IPickupReceiverInterface* AHealthPickup::GetPickupReceiver(AActor* Interactor) const
 {
-	const IPickupReceiverInterface* Receiver = Cast<IPickupReceiverInterface>(Interactor);
-	if (!Receiver)
-	{
-		return false;
-	}
-
-	FPickupPayload Probe;                        // 探测载荷：只用于询问，不真的加血
-	Probe.Type = EPickupType::Health;
-	Probe.Amount = HealAmount;
-	Probe.SourceActor = const_cast<AHealthPickup*>(this);
-
-	return Receiver->CanReceivePickup(Probe);
+	return IsValid(Interactor) ? Cast<IPickupReceiverInterface>(Interactor) : nullptr;
 }
 
-/** 真正拾取：接收者确认能收后加血，然后播特效音效并销毁自己 */
+/** 构造本物品的载荷：探测与真正拾取共用，避免两处重复赋值 */
+FPickupPayload AHealthPickup::MakePayload() const
+{
+	FPickupPayload Payload;
+	Payload.Type = EPickupType::Health;                        // 本物品只产出生命值
+	Payload.Amount = HealAmount;                               // 一次回复的点数
+	Payload.SourceActor = const_cast<AHealthPickup*>(this);    // 弱引用只用指针，const 方法里去掉 const
+	return Payload;
+}
+
+/** 询问接收者"现在能收吗"：纯只读判断，不改任何状态 */
+bool AHealthPickup::CanBePickedUpBy(AActor* Interactor) const
+{
+	const IPickupReceiverInterface* Receiver = GetPickupReceiver(Interactor);
+	return Receiver && Receiver->CanReceivePickup(MakePayload());
+}
+
+/** 真正拾取：接收成功才播特效音效并销毁自己；失败时物品原样保留 */
 bool AHealthPickup::Interact(AActor* Interactor)
 {
 	if (bConsumed || !IsValid(Interactor))
@@ -96,20 +101,16 @@ bool AHealthPickup::Interact(AActor* Interactor)
 		return false;
 	}
 
-	FPickupPayload Payload;                      // 正式载荷：交给接收者生效
-	Payload.Type = EPickupType::Health;
-	Payload.Amount = HealAmount;
-	Payload.SourceActor = this;
-
-	// 先问再给：接收者拒绝（如满血）时物品保留，不白白消耗
-	if (!Receiver->CanReceivePickup(Payload) || !Receiver->ReceivePickup(Payload))
+	// 只调 ReceivePickup：接收方内部会再判断一次能否接收（满血会拒绝），
+	// 所以不需要在这里先问一次，物品也不会被白白吃掉
+	if (!Receiver->ReceivePickup(MakePayload()))
 	{
 		return false;
 	}
 
 	bConsumed = true;
-	SpawnPickupSystem();                         // 拾取特效（AItems 基类提供）
-	SpawnPickupSound();                          // 拾取音效（AItems 基类提供）
+	SpawnPickupSystem();    // 拾取特效（AItems 基类提供）
+	SpawnPickupSound();     // 拾取音效（AItems 基类提供）
 	Destroy();
 	return true;
 }

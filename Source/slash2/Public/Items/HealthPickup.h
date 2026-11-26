@@ -6,7 +6,10 @@
 #include "CoreMinimal.h"
 #include "Items/Items.h"
 #include "Interfaces/InteractableInterface.h"
+#include "Interfaces/PickupTypes.h"
 #include "HealthPickup.generated.h"
+
+class IPickupReceiverInterface;   // 只前置声明：头文件里只用指针，完整定义留在 cpp
 
 /** 治疗药水：继承 AItems 复用模型/球体/音效特效，额外实现"按键拾取"的交互接口 */
 UCLASS()
@@ -19,16 +22,16 @@ public:
 	AHealthPickup();
 
 	//~ Begin IInteractableInterface
-	/** 返回当前应显示的文字：可用="拾取 <名字>"，满血="生命值已满" */
+	/** 返回当前应显示的文字：可用="拾取 <名字>"，满血="生命值已满"，其他情况为空 */
 	virtual FText GetInteractionPrompt(AActor* Interactor) const override;
 
-	/** 此刻能否真的拾取（已消耗/无接收者/满血 都返回 false）*/
+	/** 此刻能否真的拾取（已消耗/无接收者/满血 都返回 false） */
 	virtual bool CanInteract(AActor* Interactor) const override;
 
 	/** 交互优先级：只要药水可用就高于武器，缺血时按 E 一定是回血而不是切武器 */
 	virtual int32 GetInteractionPriority(AActor* Interactor) const override;
 
-	/** 玩家按下 E：问接收者能否收，能收才加血并销毁自己；返回 true 表示按键被消费 */
+	/** 玩家按下 E：交给接收者执行，成功才播特效并销毁自己；返回 true 表示按键被消费 */
 	virtual bool Interact(AActor* Interactor) override;
 	//~ End IInteractableInterface
 
@@ -39,7 +42,7 @@ protected:
 	/** 同上：离开范围时也不调用基类，避免清掉别的物品的重叠记录 */
 	virtual void OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex) override;
 
-	/** 一次回复的生命值（点数）*/
+	/** 一次回复的生命值（点数） */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pickup")
 	float HealAmount = 30.f;
 
@@ -52,13 +55,19 @@ protected:
 	FText UnavailablePromptText;
 
 private:
-	/** 用探测载荷询问接收者当前能否拾取（满血返回 false）*/
+	/** 取交互者身上的接收者接口：提示、可用性、交互三处共用，避免重复 Cast */
+	const IPickupReceiverInterface* GetPickupReceiver(AActor* Interactor) const;
+
+	/** 构造本物品的载荷（类型 + 数量 + 来源）：探测与真正拾取共用一份赋值逻辑 */
+	FPickupPayload MakePayload() const;
+
+	/** 用探测载荷询问接收者当前能否拾取（满血返回 false） */
 	bool CanBePickedUpBy(AActor* Interactor) const;
 
 	/** 让平面图标朝向各个方向，避免从侧面看只剩一条线 */
 	UPROPERTY(VisibleAnywhere, Category = "Pickup")
 	class URotatingMovementComponent* RotateComponent;
 
-	/** 是否已经被拾取过（保证一次物品只生效一次）*/
+	/** 是否已经被拾取过（保证一次物品只生效一次） */
 	bool bConsumed = false;
 };

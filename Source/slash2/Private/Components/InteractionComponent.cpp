@@ -12,12 +12,12 @@
 /** 构造函数：交互靠定时扫描驱动，不需要每帧 Tick */
 UInteractionComponent::UInteractionComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;          // 关掉 Tick，节省每帧开销
-	InteractKeyText = FText::FromString(TEXT("E"));     // 默认交互键文字
-	PromptWidgetClass = UInteractionPromptWidget::StaticClass();  // 默认用原生 Slate 提示
+	PrimaryComponentTick.bCanEverTick = false;                      // 关掉 Tick，省掉每帧开销
+	InteractKeyText = FText::FromString(TEXT("E"));                 // 默认交互键文字
+	PromptWidgetClass = UInteractionPromptWidget::StaticClass();    // 默认用原生 Slate 提示
 }
 
-/** 开局：按 ScanInterval 起循环定时器，并立刻先扫一次（不用等第一个间隔）*/
+/** 开局：按 ScanInterval 起循环定时器，并立刻先扫一次（不用等第一个间隔） */
 void UInteractionComponent::BeginPlay()
 {
 	Super::BeginPlay();
@@ -49,7 +49,7 @@ void UInteractionComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
-/** 扫描一次：从与角色重叠的 Actor 里挑出最近、且当前真的有提示的那个作为目标 */
+/** 扫描一次：从与角色重叠的 Actor 里挑出唯一目标，并把文案、可用性一起算好交给 UI */
 void UInteractionComponent::ScanForInteractables()
 {
 	AActor* Owner = GetOwner();
@@ -62,32 +62,42 @@ void UInteractionComponent::ScanForInteractables()
 	OverlapBuffer.Reset();
 	Owner->GetOverlappingActors(OverlapBuffer);
 
-	const float MaxDistSq = FMath::Square(MaxInteractionDistance);  // 用平方距离比较，省一次开方
+	const FVector OwnerLocation = Owner->GetActorLocation();         // 提到循环外，每个候选复用
+	const float MaxDistSq = FMath::Square(MaxInteractionDistance);   // 用平方距离比较，省一次开方
 
-	AActor* BestUsable = nullptr;                        // 现在真的能交互的目标（先比优先级，再比距离）
+	AActor* BestUsable = nullptr;                     // 当前真的能交互的目标（先比优先级，再比距离）
+	FText BestUsablePrompt;
 	float BestUsableDistSq = TNumericLimits<float>::Max();
 	int32 BestUsablePriority = TNumericLimits<int32>::Lowest();
-	AActor* BestAny = nullptr;                           // 只能显示说明文字的最近目标（如满血药水）
+
+	AActor* BestAny = nullptr;                        // 只能显示说明文字的最近目标（如满血药水）
+	FText BestAnyPrompt;
 	float BestAnyDistSq = TNumericLimits<float>::Max();
 
 	for (AActor* Candidate : OverlapBuffer)
 	{
-		// 跳过非法对象、自身，以及没实现交互接口的 Actor
-		if (!IsValid(Candidate) || Candidate == Owner || !Candidate->Implements<UInteractableInterface>())
+		// 跳过非法对象与自身；Cast 不成功就说明它没实现交互接口
+		if (!IsValid(Candidate) || Candidate == Owner)
+		{
+			continue;
+		}
+
+		const IInteractableInterface* Interactable = Cast<IInteractableInterface>(Candidate);
+		if (!Interactable)
 		{
 			continue;
 		}
 
 		// 超出交互距离的候选直接丢弃
-		const float DistSq = FVector::DistSquared(Owner->GetActorLocation(), Candidate->GetActorLocation());
+		const float DistSq = FVector::DistSquared(OwnerLocation, Candidate->GetActorLocation());
 		if (DistSq > MaxDistSq)
 		{
 			continue;
 		}
 
-		// 提示为空 = 当前没有可显示内容（如目标已失效），不参与选中
-		const IInteractableInterface* Interactable = Cast<IInteractableInterface>(Candidate);
-		if (!Interactable || Interactable->GetInteractionPrompt(Owner).IsEmpty())
+		// 每个候选只问一次文本、一次可用性；文本为空 = 现在没有可显示内容，跳过
+		const FText Prompt = Interactable->GetInteractionPrompt(Owner);
+		if (Prompt.IsEmpty())
 		{
 			continue;
 		}
@@ -99,6 +109,7 @@ void UInteractionComponent::ScanForInteractables()
 			if (Priority > BestUsablePriority || (Priority == BestUsablePriority && DistSq < BestUsableDistSq))
 			{
 				BestUsable = Candidate;
+				BestUsablePrompt = Prompt;
 				BestUsableDistSq = DistSq;
 				BestUsablePriority = Priority;
 			}
@@ -106,17 +117,25 @@ void UInteractionComponent::ScanForInteractables()
 		else if (DistSq < BestAnyDistSq)
 		{
 			BestAny = Candidate;
+			BestAnyPrompt = Prompt;
 			BestAnyDistSq = DistSq;
 		}
 	}
 
 	// 可交互目标优先：站在满血药水旁时，旁边的武器依然能被它抢到目标；
 	// 只有范围内没有可交互物时，才退而显示"生命值已满"这类说明文字
-	SetCurrentTarget(BestUsable ? BestUsable : BestAny);
+	if (BestUsable)
+	{
+		SetCurrentTarget(BestUsable, BestUsablePrompt, true);
+	}
+	else
+	{
+		SetCurrentTarget(BestAny, BestAnyPrompt, false);
+	}
 }
 
-/** 切换目标：目标变化时通知旧目标失去焦点、新目标获得焦点，然后刷新提示 */
-void UInteractionComponent::SetCurrentTarget(AActor* NewTarget)
+/** 切换目标：目标变化时通知旧目标失去焦点、新目标获得焦点，然后用扫描结果刷新提示 */
+void UInteractionComponent::SetCurrentTarget(AActor* NewTarget, const FText& ActionText, bool bUsable)
 {
 	AActor* OldTarget = CurrentTarget.Get();
 	if (OldTarget != NewTarget)
@@ -142,26 +161,12 @@ void UInteractionComponent::SetCurrentTarget(AActor* NewTarget)
 		}
 	}
 
-	UpdatePrompt();
+	UpdatePrompt(ActionText, bUsable);
 }
 
-/** 刷新提示：取当前目标的文案与可用状态，决定显示"键帽+文字"还是只显示文字 */
-void UInteractionComponent::UpdatePrompt()
+/** 刷新提示：文案为空就整体隐藏；文案与可用性都没变则不重设，避免反复刷 Slate */
+void UInteractionComponent::UpdatePrompt(const FText& ActionText, bool bUsable)
 {
-	AActor* Owner = GetOwner();
-	AActor* Target = CurrentTarget.Get();
-
-	FText ActionText = FText::GetEmpty();
-	bool bUsable = false;       // 目标此刻是否真的能被交互（满血治疗物为 false）
-	if (IsValid(Target) && Owner)
-	{
-		if (const IInteractableInterface* Interactable = Cast<IInteractableInterface>(Target))
-		{
-			ActionText = Interactable->GetInteractionPrompt(Owner);
-			bUsable = Interactable->CanInteract(Owner);
-		}
-	}
-
 	// 没有文案：整个提示隐藏
 	if (ActionText.IsEmpty())
 	{
@@ -174,7 +179,7 @@ void UInteractionComponent::UpdatePrompt()
 		return;
 	}
 
-	// 文本和可用状态都没变就不重设，避免每帧无意义地刷新 Slate
+	// 文本和可用状态都没变就不重设
 	if (PromptWidget && bUsable == bLastPromptUsable && ActionText.EqualTo(LastPromptText))
 	{
 		return;
@@ -185,9 +190,11 @@ void UInteractionComponent::UpdatePrompt()
 	{
 		// 不可用时传空键文本：UI 据此隐藏白底键帽，只留说明文字
 		PromptWidget->ShowPrompt(bUsable ? InteractKeyText : FText::GetEmpty(), ActionText);
-		LastPromptText = ActionText;
-		bLastPromptUsable = bUsable;
 	}
+
+	// 缓存放在 Widget 判断之外：即使还没创建出 Widget，按键逻辑也能直接用这份状态
+	LastPromptText = ActionText;
+	bLastPromptUsable = bUsable;
 }
 
 /** 懒创建提示 Widget：优先用角色自己的 PlayerController，兜底用 0 号玩家的 */
@@ -228,7 +235,7 @@ bool UInteractionComponent::TryInteract()
 {
 	AActor* Owner = GetOwner();
 	AActor* Target = CurrentTarget.Get();
-	if (!IsValid(Target) || !IsValid(Owner))
+	if (!IsValid(Owner) || !IsValid(Target))
 	{
 		return false;       // 没有目标：按键还给角色原有逻辑
 	}
@@ -239,23 +246,19 @@ bool UInteractionComponent::TryInteract()
 		return false;
 	}
 
-	// 目标已消失/失效（如刚被别人拾取）时不吃掉按键，让 E 键回落到原有逻辑
-	if (Interactable->GetInteractionPrompt(Owner).IsEmpty())
+	// 直接复用最近一次扫描缓存的文案与可用性：按键瞬间不必再问目标两次
+	if (LastPromptText.IsEmpty())
 	{
-		return false;
+		return false;       // 目标已失效（如刚被别人拾取）
 	}
-
-	// 目标还在但此刻不可用（如满血药水）：提示继续显示说明文字，
-	// 但这次按键不消费，让 E 回落到角色原有的拔刀/收刀逻辑
-	if (!Interactable->CanInteract(Owner))
+	if (!bLastPromptUsable)
 	{
-		return false;
+		return false;       // 不可用（如满血药水）：不吃键，让 E 回落到拔刀/收刀
 	}
 
 	const bool bInteracted = Interactable->Interact(Owner);
 
-	// 交互后立即刷新，避免提示多显示一次扫描间隔
-	SetCurrentTarget(nullptr);
+	// 交互后立刻重扫：目标可能已销毁，提示要马上更新（重扫内部会走 SetCurrentTarget 收尾）
 	ScanForInteractables();
 	return bInteracted;
 }

@@ -181,12 +181,14 @@ void AWeapon::BoxTrace(FHitResult& BoxHit)
 	);
 	IgnoreActors.AddUnique(BoxHit.GetActor());//添加命中的actor,如果已经添加过，则不会重复添加两次，不会得到指向同一对象的指针
 }
+
 /** 提示文案：已装备 / 交互者不收时返回空，否则给"拾取 武器名"或不可用说明 */
 FText AWeapon::GetInteractionPrompt(AActor* Interactor) const
 {
-	if (IsEquipped() || !IsValid(Interactor) || !Cast<IPickupReceiverInterface>(Interactor))
+	// 已装备或对方不是接收者：没有可显示内容，交互组件据此跳过这把武器
+	if (IsEquipped() || !GetPickupReceiver(Interactor))
 	{
-		return FText::GetEmpty();//没有可显示内容，交互组件据此不选中这把武器
+		return FText::GetEmpty();
 	}
 
 	// 可用："拾取 铁剑"；不可用：只显示"无法装备"（交互组件会隐藏白底键帽）
@@ -195,33 +197,30 @@ FText AWeapon::GetInteractionPrompt(AActor* Interactor) const
 		: UnavailablePromptText;
 }
 
-/** 能否按 E：没被装备 + 交互者有效 + 接收者当前愿意拿 */
+/** 此刻能否按 E：没被装备、交互者有效、接收者当前愿意拿 */
 bool AWeapon::CanInteract(AActor* Interactor) const
 {
-	return !IsEquipped() && IsValid(Interactor) && CanBeEquippedBy(Interactor);
+	return !IsEquipped() && CanBeEquippedBy(Interactor);
+}
+
+/** 取交互者身上的接收者接口：无效或没实现接口都返回 nullptr */
+const IPickupReceiverInterface* AWeapon::GetPickupReceiver(AActor* Interactor) const
+{
+	return IsValid(Interactor) ? Cast<IPickupReceiverInterface>(Interactor) : nullptr;
 }
 
 /** 用探针询问接收者：只问不取，不改任何状态 */
 bool AWeapon::CanBeEquippedBy(AActor* Interactor) const
 {
-	const IPickupReceiverInterface* Receiver = Cast<IPickupReceiverInterface>(Interactor);
-	if (!Receiver)
-	{
-		return false;
-	}
-	return Receiver->CanReceiveWeapon(const_cast<AWeapon*>(this));
+	const IPickupReceiverInterface* Receiver = GetPickupReceiver(Interactor);
+	return Receiver && Receiver->CanReceiveWeapon(const_cast<AWeapon*>(this));
 }
 
-/** 真正拾取武器：把 Actor 交给接收者处理（本项目中 = 装备到手上）*/
+/** 真正拾取武器：把 Actor 交给接收者处理（本项目中 = 装备到手上） */
 bool AWeapon::Interact(AActor* Interactor)
 {
-	if (!CanInteract(Interactor))
-	{
-		return false;
-	}
-
 	IPickupReceiverInterface* Receiver = Cast<IPickupReceiverInterface>(Interactor);
-	if (!Receiver)
+	if (!Receiver || !CanInteract(Interactor))
 	{
 		return false;
 	}
