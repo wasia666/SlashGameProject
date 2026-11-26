@@ -53,6 +53,10 @@ private:
 
 public:
 	void ReceiveDamage(float Damage);
+
+	// 治疗拾取物：恢复生命值（拾取成功后由角色调用）
+	UFUNCTION(BlueprintCallable, Category = "Actor Attributes")
+	void AddHealth(float Amount);
     void UseStamina(float StaminaCost);
 	float GetHealthPercent();
     float GetStaminaPercent();

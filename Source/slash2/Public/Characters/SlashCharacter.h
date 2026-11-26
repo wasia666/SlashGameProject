@@ -6,6 +6,7 @@
 #include "BaseCharacter.h"
 #include "CharacterTypes.h"
 #include "Interfaces/PickupInterface.h"
+#include "Interfaces/PickupReceiverInterface.h"
 #include "SlashCharacter.generated.h"
 
 
@@ -16,9 +17,10 @@ class AItems;
 class USlashOverlay;
 class ASouls;
 class ATreasure;
+class UInteractionComponent;
 
 UCLASS()
-class SLASH2_API ASlashCharacter : public ABaseCharacter,public IPickupInterface
+class SLASH2_API ASlashCharacter : public ABaseCharacter, public IPickupInterface, public IPickupReceiverInterface
 {
 	GENERATED_BODY()
 
@@ -33,6 +35,8 @@ public:
 	virtual void SetOverlappingItem(AItems* Item) override;
 	virtual void AddSouls(ASouls* Soul) override;
 	virtual void AddGold(ATreasure* Treasure) override;
+	virtual bool CanReceivePickup(const FPickupPayload& Payload) const override;
+	virtual bool ReceivePickup(const FPickupPayload& Payload) override;
 protected:
 	virtual void BeginPlay() override;
 
@@ -92,7 +96,10 @@ private:
     UGroomComponent* Eyebrows;
 	//在Items文件里面是AItems类
 	UPROPERTY(VisibleInstanceOnly)
-	AItems* OverlappingItem; 
+	AItems* OverlappingItem;
+
+	UPROPERTY(VisibleAnywhere, Category = "Interaction")
+	UInteractionComponent* InteractionComponent; 
 
 	
 

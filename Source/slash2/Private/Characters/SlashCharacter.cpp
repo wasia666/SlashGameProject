@@ -12,11 +12,16 @@
 #include "HUD/SlashOverlay.h"
 #include"Items/Souls.h"
 #include "Items/Treasure.h"
+#include "Interfaces/PickupTypes.h"
+#include "Interfaces/PickupReceiverInterface.h"
+#include "Components/InteractionComponent.h"
 
 ASlashCharacter::ASlashCharacter()
 {
 
 	PrimaryActorTick.bCanEverTick = true;
+
+	InteractionComponent = CreateDefaultSubobject<UInteractionComponent>(TEXT("InteractionComponent"));
 
 	bUseControllerRotationYaw = false;//禁止控制器旋转
 	bUseControllerRotationRoll = false;
@@ -133,6 +138,41 @@ void ASlashCharacter::AddGold(ATreasure* Treasure)
     }
 }
 
+bool ASlashCharacter::CanReceivePickup(const FPickupPayload& Payload) const
+{
+	if (!Attributes || !Attributes->IsAlive())
+	{
+		return false;
+	}
+
+	switch (Payload.Type)
+	{
+	case EPickupType::Health:
+		return Payload.Amount > 0.f && Attributes->GetHealthPercent() < 1.f;//满血时拒绝，拾取物不会被白白消耗
+	default:
+		return false;//暂时只处理生命值，其余类型等角色侧支持后再打开
+	}
+}
+
+bool ASlashCharacter::ReceivePickup(const FPickupPayload& Payload)
+{
+	if (!CanReceivePickup(Payload))
+	{
+		return false;
+	}
+
+	switch (Payload.Type)
+	{
+	case EPickupType::Health:
+		Attributes->AddHealth(Payload.Amount);//恢复生命值
+		SetHUDHealth();//同步刷新 HUD 血条
+		return true;
+	default:
+		return false;
+	}
+}
+
+
 void ASlashCharacter::BeginPlay()
 {
 	Super::BeginPlay();
@@ -190,6 +230,12 @@ void ASlashCharacter::LookUp(float Value)
 
 void ASlashCharacter::EKeyPressed()
 {
+	// 附近有可交互物时交互优先，这次 E 键不再进入装备/收刀逻辑
+	if (IsUnoccupied() && InteractionComponent && InteractionComponent->TryInteract())
+	{
+		return;
+	}
+
 	AWeapon* OverlappingWeapon = Cast<AWeapon>(OverlappingItem);//将OverlappingItem转换为AWeapon类型赋值给OverlappingWeapon
 	if (OverlappingWeapon)
     {
