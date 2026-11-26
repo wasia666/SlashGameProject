@@ -22,8 +22,13 @@ public:
 	/** 提示文字（如"拾取 生命药水"）；返回空文本表示当前没有提示，UI 整个不显示 */
 	virtual FText GetInteractionPrompt(AActor* Interactor) const { return FText::GetEmpty(); }
 
-	/** 此刻是否真的能交互（如满血时治疗物不可拾取）；false 时 UI 仍显示说明文字但不显示按键，按键被吃掉不落到其他逻辑 */
+	/** 此刻是否真的能交互（如满血时治疗物不可拾取）；false 时 UI 仍显示说明文字但不显示按键，
+	    按键不消费、回落到角色原有的装备/收刀逻辑 */
 	virtual bool CanInteract(AActor* Interactor) const { return true; }
+
+	/** 交互优先级：数值越大越优先。同一时刻有多个可交互目标时先比优先级、再比距离；
+	    默认 0，即普通可交互物之间仍按距离取最近 */
+	virtual int32 GetInteractionPriority(AActor* Interactor) const { return 0; }
 
 	/** 玩家按下交互键；返回 true 表示交互成功，这次按键被消费 */
 	virtual bool Interact(AActor* Interactor) { return false; }

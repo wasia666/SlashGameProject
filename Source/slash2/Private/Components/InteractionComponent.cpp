@@ -64,8 +64,9 @@ void UInteractionComponent::ScanForInteractables()
 
 	const float MaxDistSq = FMath::Square(MaxInteractionDistance);  // 用平方距离比较，省一次开方
 
-	AActor* BestUsable = nullptr;                        // 现在真的能交互的最近目标（没满血/没被装备）
+	AActor* BestUsable = nullptr;                        // 现在真的能交互的目标（先比优先级，再比距离）
 	float BestUsableDistSq = TNumericLimits<float>::Max();
+	int32 BestUsablePriority = TNumericLimits<int32>::Lowest();
 	AActor* BestAny = nullptr;                           // 只能显示说明文字的最近目标（如满血药水）
 	float BestAnyDistSq = TNumericLimits<float>::Max();
 
@@ -91,13 +92,15 @@ void UInteractionComponent::ScanForInteractables()
 			continue;
 		}
 
-		// 按"能否真的交互"分两组各自取最近，可交互的那组永远优先
+		// 按"能否真的交互"分两组：可用组优先；组内先比优先级（药水 > 武器），同优先级再比距离
 		if (Interactable->CanInteract(Owner))
 		{
-			if (DistSq < BestUsableDistSq)
+			const int32 Priority = Interactable->GetInteractionPriority(Owner);
+			if (Priority > BestUsablePriority || (Priority == BestUsablePriority && DistSq < BestUsableDistSq))
 			{
 				BestUsable = Candidate;
 				BestUsableDistSq = DistSq;
+				BestUsablePriority = Priority;
 			}
 		}
 		else if (DistSq < BestAnyDistSq)

@@ -25,6 +25,9 @@ public:
 	/** 此刻能否真的拾取（已消耗/无接收者/满血 都返回 false）*/
 	virtual bool CanInteract(AActor* Interactor) const override;
 
+	/** 交互优先级：只要药水可用就高于武器，缺血时按 E 一定是回血而不是切武器 */
+	virtual int32 GetInteractionPriority(AActor* Interactor) const override;
+
 	/** 玩家按下 E：问接收者能否收，能收才加血并销毁自己；返回 true 表示按键被消费 */
 	virtual bool Interact(AActor* Interactor) override;
 	//~ End IInteractableInterface

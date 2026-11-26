@@ -59,6 +59,12 @@ bool AHealthPickup::CanInteract(AActor* Interactor) const
 	return !bConsumed && IsValid(Interactor) && CanBePickedUpBy(Interactor);
 }
 
+/** 交互优先级：药水（100）永远高于武器（默认 0），缺血时按键优先回血 */
+int32 AHealthPickup::GetInteractionPriority(AActor* /*Interactor*/) const
+{
+	return 100;
+}
+
 /** 用一次探测请求问接收者"你现在能收这个药水吗"，不改动任何状态 */
 bool AHealthPickup::CanBePickedUpBy(AActor* Interactor) const
 {

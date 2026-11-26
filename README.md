@@ -66,9 +66,11 @@
   拾取物只描述「给什么、给多少」，效果由接收方按类型自行决定。
 - `UInteractionComponent` — 挂在玩家角色上的交互组件（`ScanInterval` 0.1s）：
   用 `GetOverlappingActors` 复用「物品 `Sphere` ↔ 角色」的现成重叠，
-  过滤实现了 `IInteractableInterface` 且提示非空的目标，再按「此刻能否交互」分两组各取最近：
-  **能交互的目标永远优先**——站在满血药水旁时，旁边的武器依然抢得到目标、按 `E` 照样能捡；
-  范围内没有能交互的东西时，才退而显示「生命值已满」这类说明文字。
+  过滤实现了 `IInteractableInterface` 且提示非空的目标，再按「此刻能否交互」分成两组：
+  **能交互的那组永远优先**，组内先比 `GetInteractionPriority()`（数值大者优先），优先级相同再比距离；
+  一个能交互的目标都没有时，才退而显示「生命值已满」这类说明文字。
+  这条优先级让治疗药水（`AHealthPickup` 返回 100）压过武器（默认 0）：血没满时身边即使有更近的武器，
+  按 `E` 也是先回血、不会误切武器；满血时药水不可交互，`E` 才落到武器上。
   `TryInteract()` 的返回值语义是「这次按键归交互系统」：交互成功才返回 `true`；
   目标不可用（如满血药水）时返回 `false`，按键回落给角色原有的拔刀 / 收刀逻辑。
 - `UInteractionPromptWidget` — 纯 Slate 绘制的提示：白底方框 + 黑色粗体 `E` + 动作文字，
@@ -83,6 +85,7 @@
   物品名来自 `Pickup Display Name`（默认 `生命药水`）——打开 `BP_HealthPickup` 的 Class Defaults，
   在 `Pickup` 分类里改它就能显示「拾取 小血瓶」等不同名字，不用动 C++。
   判定统一走 `CanBePickedUpBy()` —— 用探测载荷问接收者 `CanReceivePickup()`，拾取物自己不判断血量。
+  `GetInteractionPriority()` 返回 100，所以只要药水可用，就永远压过武器（见上文优先级规则）。
   `Sphere` 上设了 `SetAbsolute(false, false, true)`：蓝图把 `ItemMesh` 缩到 0.45，
   若判定球跟随缩放，180 的半径在世界里只剩 81cm，解除缩放后才真正是 2m 左右。
   它**重写了 `OnSphereOverlap` / `OnSphereEndOverlap` 且不调用基类**，
