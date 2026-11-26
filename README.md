@@ -73,6 +73,11 @@
   按 `E` 也是先回血、不会误切武器；满血时药水不可交互，`E` 才落到武器上。
   `TryInteract()` 的返回值语义是「这次按键归交互系统」：交互成功才返回 `true`；
   目标不可用（如满血药水）时返回 `false`，按键回落给角色原有的拔刀 / 收刀逻辑。
+- 一次扫描只做一次探测：`ScanForInteractables()` 在挑目标的同时就把提示文字与「此刻能否交互」算好，
+  一起交给 `UpdatePrompt()` 显示，不再对同一个目标重复调用 `GetInteractionPrompt()` / `CanInteract()`
+  （这两个函数内部都会走一次 `CanReceivePickup`，现在每 0.1s 最多只剩 2 次回调）；
+  `TryInteract()` 直接复用上次扫描缓存的文案与可用状态，不再额外询问目标。
+  距离比较也复用循环外取出的角色位置，避免每个候选重复取 `GetActorLocation()`。
 - `UInteractionPromptWidget` — 纯 Slate 绘制的提示：白底方框 + 黑色粗体 `E` + 动作文字，
   锚定屏幕底部居中（屏幕空间 UI，尺寸恒定、天然正对镜头）；提示文字为空时整个控件 `Collapsed`。
   `ShowPrompt()` 收到空键文本时只折叠白底键帽、保留说明文字——于是「满血」能显示 `生命值已满`
@@ -85,6 +90,8 @@
   物品名来自 `Pickup Display Name`（默认 `生命药水`）——打开 `BP_HealthPickup` 的 Class Defaults，
   在 `Pickup` 分类里改它就能显示「拾取 小血瓶」等不同名字，不用动 C++。
   判定统一走 `CanBePickedUpBy()` —— 用探测载荷问接收者 `CanReceivePickup()`，拾取物自己不判断血量。
+  载荷由 `MakePayload()` 统一构造、接口转换由 `GetPickupReceiver()` 统一完成，`Interact()` 只调一次
+  `ReceivePickup()`（接收方内部已复核满血，失败就保留物品，不会白吃）。
   `GetInteractionPriority()` 返回 100，所以只要药水可用，就永远压过武器（见上文优先级规则）。
   `Sphere` 上设了 `SetAbsolute(false, false, true)`：蓝图把 `ItemMesh` 缩到 0.45，
   若判定球跟随缩放，180 的半径在世界里只剩 81cm，解除缩放后才真正是 2m 左右。
