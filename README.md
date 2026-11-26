@@ -3,7 +3,7 @@
 一个基于 **Unreal Engine 5.0** 的第三人称 ARPG 动作游戏原型（C++ + 蓝图混合开发）。
 
 包含近战连击、装备/收刀、方向性受击反馈、四方向死亡动画、Chaos 破碎、战利品与灵魂拾取、
-靠近显示 `E` 键的交互提示与治疗拾取物、敌人 AI 巡逻-追击-攻击状态机以及 HUD 血条等完整战斗循环。
+靠近显示 `E` 键的交互提示、治疗拾取物与武器拾取、敌人 AI 巡逻-追击-攻击状态机以及 HUD 血条等完整战斗循环。
 
 > ⚠️ **本仓库只包含项目自有的核心内容**。第三方素材库（AncientContent、Megascans 贴图、
 > 植被包等）体积达 30 GB 且受各自许可协议约束，未纳入版本管理。
@@ -18,7 +18,7 @@
 | `W` `A` `S` `D` | 移动 |
 | 鼠标 | 视角旋转 |
 | `Space` | 跳跃 |
-| `E` | 靠近拾取物时交互拾取；否则装备 / 收起武器 |
+| `E` | 靠近拾取物 / 武器时交互拾取；否则装备 / 收起武器 |
 | `鼠标左键` | 攻击（武器已装备时） |
 | `Shift` | 闪避翻滚 |
 
@@ -66,9 +66,11 @@
   拾取物只描述「给什么、给多少」，效果由接收方按类型自行决定。
 - `UInteractionComponent` — 挂在玩家角色上的交互组件（`ScanInterval` 0.1s）：
   用 `GetOverlappingActors` 复用「物品 `Sphere` ↔ 角色」的现成重叠，
-  过滤实现了 `IInteractableInterface` 且提示非空的目标，取最近且在 `MaxInteractionDistance` 内的一个，
-  交给提示控件显示。`TryInteract()` 的返回值语义是「这次按键归交互系统」：
-  目标当前不可用（如满血）时也返回 `true` 把键吃掉，只有完全没目标时才返回 `false` 让按键回落。
+  过滤实现了 `IInteractableInterface` 且提示非空的目标，再按「此刻能否交互」分两组各取最近：
+  **能交互的目标永远优先**——站在满血药水旁时，旁边的武器依然抢得到目标、按 `E` 照样能捡；
+  范围内没有能交互的东西时，才退而显示「生命值已满」这类说明文字。
+  `TryInteract()` 的返回值语义是「这次按键归交互系统」：交互成功才返回 `true`；
+  目标不可用（如满血药水）时返回 `false`，按键回落给角色原有的拔刀 / 收刀逻辑。
 - `UInteractionPromptWidget` — 纯 Slate 绘制的提示：白底方框 + 黑色粗体 `E` + 动作文字，
   锚定屏幕底部居中（屏幕空间 UI，尺寸恒定、天然正对镜头）；提示文字为空时整个控件 `Collapsed`。
   `ShowPrompt()` 收到空键文本时只折叠白底键帽、保留说明文字——于是「满血」能显示 `生命值已满`
@@ -76,7 +78,10 @@
 - `AHealthPickup` — 治疗拾取物（`AItems` 子类，蓝图 `Content/Blueprints/Items/Pickups/BP_HealthPickup`）：
   `HealAmount` 默认 30、缓慢自转的平面图标；`Interact()` 里 `Cast<IPickupReceiverInterface>` 成功后才
   播特效/音效并 `Destroy()`，`bConsumed` 保证不会重复生效。
-  提示有两态：可拾取显示 `拾取 生命药水`，不可拾取（满血）显示 `UnavailablePromptText`（默认 `生命值已满`）；
+  提示有两态：可拾取显示 `拾取 <物品名>`，不可拾取（满血）显示 `UnavailablePromptText`（默认 `生命值已满`）；
+  `拾取 ` 前缀由 `PickupTypes.h` 里的 `MakePickupPrompt()` 统一拼接（治疗物和武器共用），
+  物品名来自 `Pickup Display Name`（默认 `生命药水`）——打开 `BP_HealthPickup` 的 Class Defaults，
+  在 `Pickup` 分类里改它就能显示「拾取 小血瓶」等不同名字，不用动 C++。
   判定统一走 `CanBePickedUpBy()` —— 用探测载荷问接收者 `CanReceivePickup()`，拾取物自己不判断血量。
   `Sphere` 上设了 `SetAbsolute(false, false, true)`：蓝图把 `ItemMesh` 缩到 0.45，
   若判定球跟随缩放，180 的半径在世界里只剩 81cm，解除缩放后才真正是 2m 左右。
@@ -84,11 +89,31 @@
   所以不会走 `AItems` 的自动拾取、也不会污染 `OverlappingItem`（`E` 键仍可正常拔刀）。
 - 角色侧：`ASlashCharacter::ReceivePickup` 的 `Health` 分支调用 `UAttributeComponent::AddHealth()`
   并 `SetHUDHealth()` 立即刷新血条（`AddHealth` 会按 `MaxHealth` 截断，不会溢出）；
-  `CanReceivePickup` 满血时返回 `false`：物品仍显示说明文字，但键帽隐藏、按键不消耗、物品不消失。
+  `CanReceivePickup` 满血时返回 `false`：物品仍显示说明文字，但键帽隐藏、物品不消失；
+  此时按 `E` 不会被交互系统吃掉，而是继续走装备 / 收刀。
 - `ASlashCharacter::EKeyPressed()` 只在最前面多了一个分支：
-  `if (IsUnoccupied() && InteractionComponent && InteractionComponent->TryInteract()) return;`
-  ——按键被交互系统接管时直接返回，没目标时照旧走装备 / 收刀逻辑。
+  `if (InteractionComponent && InteractionComponent->TryInteract()) return;`
+  ——按键被交互系统接管时直接返回，没目标或目标不可用时照旧走装备 / 收刀逻辑。
+  该分支刻意**不判断 `IsUnoccupied()`**：需求是「武器无论满血、战斗还是闪避都能按 `E` 拾取」，
+  攻击/翻滚途中也能捡起脚边的武器与药水。
 - 散布：把 `BP_HealthPickup` 直接摆到关卡里即可；测试地图 `TestMap` 在出生点周围放了 5 个。
+
+### 武器拾取
+
+- `AWeapon` 也实现 `IInteractableInterface`：靠近一把没被拿走的武器，屏幕底部显示 `E 拾取 <武器名>`，
+  按 `E` 才装备（与满血与否、是否在战斗中一律无关）。装备后 `ItemState` 变成 `EIS_Equipped`、判定球碰撞被 `DisableSphereCollision()` 关掉，
+  提示立刻消失，不会对着手里的武器反复提示。
+- **武器名在蓝图里改，不用动代码**：打开 `Content/Blueprints/Items/Weapons/BP_Weapon*` 的
+  Class Defaults，在 `Pickup` 分类里填 `Pickup Display Name`（默认 `武器`），
+  不同武器就显示「拾取 铁剑」「拾取 长枪」等；`Unavailable Prompt Text`（默认 `无法装备`）
+  是角色当前无法接收时的说明文字——此时只显示文字、不显示白底 `E` 键帽。
+  ⚠️ 中文名只在蓝图里填：`Weapon.cpp` 是 GBK 文件，C++ 里写中文字面量会被当 UTF-8 解析成乱码，
+  所以源码里的默认文案用了 `\uXXXX` 转义。
+- 装备逻辑没有被复制或改写：武器只把 `CanReceiveWeapon()` / `ReceiveWeapon()` 交给接收者，
+  角色实现里直接调用原有的 `ASlashCharacter::EquipWeapon()`；`EKeyPressed()` 里
+  基于 `OverlappingItem` 的旧分支保留，交互系统命中时优先。
+- 灵魂与金币**不做提示**：`ASouls` / `ATreasure` 不实现 `IInteractableInterface`，
+  重叠即自动拾取，原有逻辑一行未改。
 
 ### 敌人 AI
 
